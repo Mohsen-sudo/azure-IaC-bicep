@@ -23,7 +23,7 @@ stages:
           az deployment group create `
             --resource-group rg-shared-services `
             --template-file infra/stacks/shared-services/main.bicep `
-            --parameters @infra/env/shared-services.parameters.json
+            --parameters @infra/stacks/shared-services/main.json
 
 - stage: CompanyA
   displayName: 'Deploy Company A'
