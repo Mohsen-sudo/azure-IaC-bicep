@@ -1,51 +1,41 @@
-@description('Location for all resources')
+targetScope = 'resourceGroup'
+
+@description('Deployment location for all resources')
 param location string
 
-var vnetAddressPrefixes = [
-  '10.0.0.0/16'
-]
-var subnetAddressPrefix = '10.0.1.0/24'
-
-// Networking - VNet
-module vnetModule '../../modules/networking/vnet.bicep' = {
-  name: 'vnetModule'
-  params: {
-    location: location
-    addressPrefixes: vnetAddressPrefixes
-    subnetAddressPrefix: subnetAddressPrefix
+resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
+  name: 'hubVnet'
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        '10.0.0.0/16'
+      ]
+    }
+    subnets: [
+      {
+        name: 'hubSubnet'
+        properties: {
+          addressPrefix: '10.0.1.0/24' // fixed typo and type
+        }
+      }
+    ]
   }
 }
 
-// Networking - VPN Gateway
-module vpnGatewayModule '../../modules/networking/vpnGateway.bicep' = {
-  name: 'vpnGatewayModule'
-  params: {
-    location: location
-    vnetId: vnetModule.outputs.vnetId
-    vpnPIPName: 'sharedServicesVPNPIP'
+resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: 'hubKeyVault'
+  location: location
+  properties: {
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    tenantId: subscription().tenantId
+    enableSoftDelete: true
   }
 }
 
-// Identity - Key Vault
-module kvModule '../../modules/identity/keyVault.bicep' = {
-  name: 'kvModule'
-  params: {
-    location: location
-    vaultName: 'sharedServicesKV25MOHSEN'
-  }
-}
-
-// Monitoring - Log Analytics
-module lawModule '../../modules/monitor/logAnalytics.bicep' = {
-  name: 'lawModule'
-  params: {
-    location: location
-    workspaceName: 'sharedServicesLAW'
-  }
-}
-
-// Outputs
-output vnetId string = vnetModule.outputs.vnetId
-output vpnGatewayId string = vpnGatewayModule.outputs.vpnGatewayId
-output keyVaultId string = kvModule.outputs.keyVaultId
-output lawId string = lawModule.outputs.workspaceId
+output vnetId string = hubVnet.id
+output subnetId string = hubVnet.properties.subnets[0].id
+output keyVaultId string = hubKeyVault.id
