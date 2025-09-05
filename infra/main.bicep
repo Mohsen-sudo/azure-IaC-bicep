@@ -33,7 +33,7 @@ resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     }
     tenantId: subscription().tenantId
     enableSoftDelete: true
-    enableRbacAuthorization: true // <-- Use RBAC!
+    enableRbacAuthorization: true
   }
 }
 
