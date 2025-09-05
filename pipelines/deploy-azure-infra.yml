@@ -45,7 +45,7 @@ stages:
           az deployment group create `
             --resource-group rg-company-a `
             --template-file infra/stacks/company-a/main.bicep `
-            --parameters "@infra/env/company-a.parameters.json"
+            --parameters "@infra/stacks/company-a/company-a.parameters.json"
 
 - stage: CompanyB
   displayName: 'Deploy Company B'
@@ -67,4 +67,4 @@ stages:
           az deployment group create `
             --resource-group rg-company-b `
             --template-file infra/stacks/company-b/main.bicep `
-            --parameters "@infra/env/company-b.parameters.json"
+            --parameters "@infra/stacks/company-b/company-b.parameters.json"
