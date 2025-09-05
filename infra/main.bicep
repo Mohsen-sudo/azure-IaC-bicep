@@ -1,33 +1,24 @@
 // shared-services/main.bicep
-// Deploy Hub VNet + Key Vault for shared services
-
 targetScope = 'resourceGroup'
 
 @description('Deployment location for all resources')
 param location string
 
-@description('Virtual Network address prefixes')
-param vnetAddressPrefixes array
-
-@description('Subnet address prefix')
-param subnetAddressPrefix string
-
-@description('Key Vault name')
-param keyVaultName string
-
 // ========== Virtual Network ==========
-resource hubVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
-  name: 'hubVNet'
+resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
+  name: 'hubVnet'
   location: location
   properties: {
     addressSpace: {
-      addressPrefixes: vnetAddressPrefixes
+      addressPrefixes: [
+        '10.0.0.0/16' // Hardcoded VNet prefix
+      ]
     }
     subnets: [
       {
         name: 'hubSubnet'
         properties: {
-          addressPrefix: subnetAddressPrefix
+          addressPrefix: '10.0.1.0/24' // Hardcoded subnet prefix
         }
       }
     ]
@@ -35,20 +26,20 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
 }
 
 // ========== Key Vault ==========
-resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: keyVaultName
+resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: 'hubKeyVault'
   location: location
   properties: {
-    tenantId: subscription().tenantId
     sku: {
-      name: 'standard'
       family: 'A'
+      name: 'standard'
     }
-    accessPolicies: []
+    tenantId: subscription().tenantId
+    enableSoftDelete: true
   }
 }
 
 // ========== Outputs ==========
 output vnetId string = hubVnet.id
 output subnetId string = hubVnet.properties.subnets[0].id
-output keyVaultId string = kv.id
+output keyVaultId string = hubKeyVault.id
