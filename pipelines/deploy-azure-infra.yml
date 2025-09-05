@@ -20,6 +20,7 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           az account set --subscription "Azure sub1"
+          az group create --name rg-shared-services --location northeurope
           az deployment group create `
             --resource-group rg-shared-services `
             --template-file infra/stacks/shared-services/main.bicep `
@@ -42,6 +43,7 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           az account set --subscription "Azure Sub-A"
+          az group create --name rg-company-a --location northeurope
           az deployment group create `
             --resource-group rg-company-a `
             --template-file infra/stacks/company-a/main.bicep `
@@ -64,6 +66,7 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           az account set --subscription "Azure Sub-B"
+          az group create --name rg-company-b --location northeurope
           az deployment group create `
             --resource-group rg-company-b `
             --template-file infra/stacks/company-b/main.bicep `
