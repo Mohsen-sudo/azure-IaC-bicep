@@ -1,7 +1,7 @@
 // shared-services/main.bicep
 // Deploy Hub VNet + Key Vault for shared services
 
-targetScope = 'subscription'
+targetScope = 'resourceGroup'
 
 @description('Deployment location for all resources')
 param location string
@@ -16,7 +16,7 @@ param subnetAddressPrefix string
 param keyVaultName string
 
 // ========== Virtual Network ==========
-resource hubVnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
+resource hubVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   name: 'hubVNet'
   location: location
   properties: {
