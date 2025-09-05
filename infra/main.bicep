@@ -1,11 +1,22 @@
-// Shared Services VNet and Key Vault
+// Shared Services main.bicep
+// Deploys Hub VNet and Key Vault
 
+targetScope = 'subscription'
+
+@description('Location for all resources')
 param location string
+
+@description('Virtual Network address prefixes')
 param vnetAddressPrefixes array
+
+@description('Subnet address prefix')
 param subnetAddressPrefix string
 
+@description('Key Vault name')
+param keyVaultName string
+
 // ========== Virtual Network ==========
-resource vnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
+resource hubVnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
   name: 'hubVNet'
   location: location
   properties: {
@@ -24,22 +35,20 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
 }
 
 // ========== Key Vault ==========
-param vaultName string
-
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: vaultName
+  name: keyVaultName
   location: location
   properties: {
     tenantId: subscription().tenantId
     sku: {
-      family: 'A'
       name: 'standard'
+      family: 'A'
     }
-    accessPolicies: [] // can add SPN access here later
+    accessPolicies: []
   }
 }
 
 // ========== Outputs ==========
-output subnetId string = vnet.properties.subnets[0].id
-output vnetId string = vnet.id
+output vnetId string = hubVnet.id
+output subnetId string = hubVnet.properties.subnets[0].id
 output keyVaultId string = kv.id
