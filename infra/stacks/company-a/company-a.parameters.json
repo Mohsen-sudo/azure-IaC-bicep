@@ -9,7 +9,7 @@
       "value": "Aadmin"
     },
     "location": {
-      "value": "northeurope" // Change this to your preferred Azure region if needed
+      "value": "northeurope"
     },
     "maxSessionHosts": {
       "value": 10
