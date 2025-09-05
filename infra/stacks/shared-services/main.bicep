@@ -1,11 +1,18 @@
 @description('Location for all resources')
 param location string
 
+var vnetAddressPrefixes = [
+  '10.0.0.0/16'
+]
+var subnetAddressPrefix = '10.0.1.0/24'
+
 // Networking - VNet
 module vnetModule '../../modules/networking/vnet.bicep' = {
   name: 'vnetModule'
   params: {
     location: location
+    addressPrefixes: vnetAddressPrefixes
+    subnetAddressPrefix: subnetAddressPrefix
   }
 }
 
