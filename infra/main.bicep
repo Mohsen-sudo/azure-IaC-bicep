@@ -24,7 +24,7 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
 }
 
 resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: 'hubKeyVault'
+  name: 'sharedServicesKV25momo' // <-- your Key Vault name!
   location: location
   properties: {
     sku: {
