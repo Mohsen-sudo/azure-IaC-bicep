@@ -1,9 +1,9 @@
-// Shared Services main.bicep
-// Deploys Hub VNet and Key Vault
+// shared-services/main.bicep
+// Deploy Hub VNet + Key Vault for shared services
 
 targetScope = 'subscription'
 
-@description('Location for all resources')
+@description('Deployment location for all resources')
 param location string
 
 @description('Virtual Network address prefixes')
