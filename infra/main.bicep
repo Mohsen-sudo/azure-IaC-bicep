@@ -18,7 +18,9 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
       {
         name: 'hubSubnet'
         properties: {
-          addressPrefix: '10.0.1.0/24' // Hardcoded subnet prefix
+          addressPrefixes: [
+            '10.0.1.0/24' // Corrected to array property
+          ]
         }
       }
     ]
