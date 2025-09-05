@@ -1,0 +1,70 @@
+trigger:
+  branches:
+    include:
+      - main
+
+stages:
+- stage: SharedServices
+  displayName: 'Deploy Shared Services'
+  jobs:
+  - job: DeploySharedServices
+    displayName: 'Deploy Shared Services Resources'
+    pool:
+      name: 'IaC-agent-pool'
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Deploy Shared Services Bicep'
+      inputs:
+        azureSubscription: 'SharedServices-ARM'
+        scriptType: 'ps'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az account set --subscription "Azure sub1"
+          az deployment group create `
+            --resource-group rg-shared-services `
+            --template-file infra/stacks/shared-services/main.bicep `
+            --parameters @infra/env/dev.parameters.json
+
+- stage: CompanyA
+  displayName: 'Deploy Company A'
+  dependsOn: SharedServices
+  jobs:
+  - job: DeployCompanyA
+    displayName: 'Deploy Company A Resources'
+    pool:
+      name: 'IaC-agent-pool'
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Deploy Company A Bicep'
+      inputs:
+        azureSubscription: 'CompanyA-ARM'
+        scriptType: 'ps'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az account set --subscription "Azure Sub-A"
+          az deployment group create `
+            --resource-group rg-company-a `
+            --template-file infra/stacks/company-a/main.bicep `
+            --parameters @infra/env/dev.parameters.json
+
+- stage: CompanyB
+  displayName: 'Deploy Company B'
+  dependsOn: SharedServices
+  jobs:
+  - job: DeployCompanyB
+    displayName: 'Deploy Company B Resources'
+    pool:
+      name: 'IaC-agent-pool'
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Deploy Company B Bicep'
+      inputs:
+        azureSubscription: 'CompanyB-ARM'
+        scriptType: 'ps'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az account set --subscription "Azure Sub-B"
+          az deployment group create `
+            --resource-group rg-company-b `
+            --template-file infra/stacks/company-b/main.bicep `
+            --parameters @infra/env/dev.parameters.json
