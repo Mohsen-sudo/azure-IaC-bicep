@@ -1,33 +1,28 @@
-// shared-services/main.bicep
 targetScope = 'resourceGroup'
 
 @description('Deployment location for all resources')
 param location string
 
-// ========== Virtual Network ==========
 resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: 'hubVnet'
   location: location
   properties: {
     addressSpace: {
       addressPrefixes: [
-        '10.0.0.0/16' // Hardcoded VNet prefix
+        '10.0.0.0/16'
       ]
     }
     subnets: [
       {
         name: 'hubSubnet'
         properties: {
-          addressPrefixe: [
-            '10.0.1.0/24' // Corrected to array property
-          ]
+          addressPrefix: '10.0.1.0/24'
         }
       }
     ]
   }
 }
 
-// ========== Key Vault ==========
 resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: 'hubKeyVault'
   location: location
@@ -38,10 +33,10 @@ resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     }
     tenantId: subscription().tenantId
     enableSoftDelete: true
+    enableRbacAuthorization: true // <-- Use RBAC!
   }
 }
 
-// ========== Outputs ==========
 output vnetId string = hubVnet.id
 output subnetId string = hubVnet.properties.subnets[0].id
 output keyVaultId string = hubKeyVault.id
