@@ -1,68 +1,45 @@
-// Root orchestrator for Hub-Spoke AVD lab
+// Shared Services VNet and Key Vault
 
-targetScope = 'tenant'
+param location string
+param vnetAddressPrefixes array
+param subnetAddressPrefix string
 
-// ========== Parameters ==========
-@description('Deployment location for all resources')
-param location string = 'northeurope'
-
-@secure()
-param adminPassword string
-
-param adminUsername string = 'AVDadmin'
-param maxSessionHosts int = 2
-
-// ========== Subscriptions ==========
-@description('Hub subscription Id')
-param hubSubId string = '2323178e-8454-42b7-b2ec-fc8857af816e' // Azure sub1
-
-@description('Company A subscription Id')
-param spokeASubId string = 'bc590447-877b-4cb2-9253-6d4aab175a22' // Azure Sub-A
-
-@description('Company B subscription Id')
-param spokeBSubId string = 'ed5e066d-0ce1-4bfa-b62d-edba1e6eb807' // Azure Sub-B
-
-// ========== Hub Deployment ==========
-module hub './stacks/shared-services/main.bicep' = {
-  name: 'hubDeployment'
-  scope: subscription(hubSubId)
-  params: {
-    location: location
-    vnetAddressPrefixes: [
-      '10.254.0.0/16'  // added to fix BCP035
+// ========== Virtual Network ==========
+resource vnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
+  name: 'hubVNet'
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: vnetAddressPrefixes
+    }
+    subnets: [
+      {
+        name: 'hubSubnet'
+        properties: {
+          addressPrefix: subnetAddressPrefix
+        }
+      }
     ]
-    subnetAddressPrefix: '10.254.1.0/24'  // added to fix BCP035
   }
 }
 
-// ========== Spoke A ==========
-module spokeA './stacks/company-a/main.bicep' = {
-  name: 'spokeADeployment'
-  scope: subscription(spokeASubId)
-  params: {
-    location: location
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    vnetAddressPrefixes: [
-      '10.0.0.0/16'
-    ]
-    subnetAddressPrefix: '10.0.1.0/24'
-    maxSessionHosts: maxSessionHosts
+// ========== Key Vault ==========
+param vaultName string
+
+resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: vaultName
+  location: location
+  properties: {
+    tenantId: subscription().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    accessPolicies: [] // can add SPN access here later
   }
 }
 
-// ========== Spoke B ==========
-module spokeB './stacks/company-b/main.bicep' = {
-  name: 'spokeBDeployment'
-  scope: subscription(spokeBSubId)
-  params: {
-    location: location
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    vnetAddressPrefixes: [
-      '10.1.0.0/16'
-    ]
-    subnetAddressPrefix: '10.1.1.0/24'
-    maxSessionHosts: maxSessionHosts
-  }
-}
+// ========== Outputs ==========
+output subnetId string = vnet.properties.subnets[0].id
+output vnetId string = vnet.id
+output keyVaultId string = kv.id
