@@ -1,64 +1,55 @@
-// Root orchestrator for Hub-Spoke AVD lab
+// Shared Services Hub Deployment
+targetScope = 'resourceGroup'
 
-targetScope = 'tenant'
-
-// ========== Parameters ==========
-@description('Deployment location for all resources')
+@description('Location for all resources')
 param location string = 'northeurope'
 
-@secure()
-param adminPassword string
+@description('Virtual network address space')
+param vnetAddressPrefixes array = [
+  '10.0.0.0/16'
+]
 
-param adminUsername string = 'AVDadmin'
-param maxSessionHosts int = 2
+@description('Subnet address prefix for the hub subnet')
+param subnetAddressPrefix string = '10.0.0.0/24'
 
-// ========== Subscriptions ==========
-@description('Hub subscription Id')
-param hubSubId string = '2323178e-8454-42b7-b2ec-fc8857af816e' // Azure sub1
+@description('Key Vault name')
+param keyVaultName string = 'sharedServicesKV25MOHSEN'
 
-@description('Company A subscription Id')
-param spokeASubId string = 'bc590447-877b-4cb2-9253-6d4aab175a22' // Azure Sub-A
-
-@description('Company B subscription Id')
-param spokeBSubId string = 'ed5e066d-0ce1-4bfa-b62d-edba1e6eb807' // Azure Sub-B
-
-// ========== Hub Deployment ==========
-module hub './stacks/shared-services/main.bicep' = {
-  name: 'hubDeployment'
-  scope: subscription(hubSubId)
-  params: {
-    location: location
+// ========== Virtual Network ==========
+resource hubVnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
+  name: 'hubVnet'
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: vnetAddressPrefixes
+    }
+    subnets: [
+      {
+        name: 'HubSubnet'
+        properties: {
+          addressPrefix: subnetAddressPrefix
+        }
+      }
+    ]
   }
 }
 
-// ========== Spoke A ==========
-module spokeA './stacks/company-a/main.bicep' = {
-  name: 'spokeADeployment'
-  scope: subscription(spokeASubId)
-  params: {
-    location: location
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    vnetAddressPrefixes: [
-      '10.0.0.0/16'
-    ]
-    subnetAddressPrefix: '10.0.1.0/24'
-    maxSessionHosts: maxSessionHosts
-  }
-}
+// ========== Outputs ==========
+output vnetId string = hubVnet.id
+output subnetId string = hubVnet.properties.subnets[0].id
 
-// ========== Spoke B ==========
-module spokeB './stacks/company-b/main.bicep' = {
-  name: 'spokeBDeployment'
-  scope: subscription(spokeBSubId)
-  params: {
-    location: location
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    vnetAddressPrefixes: [
-      '10.1.0.0/16'
-    ]
-    subnetAddressPrefix: '10.1.1.0/24'
-    maxSessionHosts: maxSessionHosts
+// ========== Key Vault ==========
+resource hubKV 'Microsoft.KeyVault/vaults@2022-11-01' = {
+  name: keyVaultName
+  location: location
+  properties: {
+    tenantId: subscription().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    accessPolicies: [] // Add access policies as needed
+    enableSoftDelete: true
+    enablePurgeProtection: true
   }
 }
