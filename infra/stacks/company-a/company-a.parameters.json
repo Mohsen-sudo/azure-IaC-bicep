@@ -22,5 +22,6 @@
         "10.1.0.0/16"
       ]
     }
+    // "timestamp" is optional and will default to utcNow() if omitted
   }
 }
