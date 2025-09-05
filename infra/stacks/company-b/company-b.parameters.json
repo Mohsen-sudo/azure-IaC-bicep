@@ -3,10 +3,10 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "adminPassword": {
-      "value": "SuperSecretPassword456!"
+      "value": "NN12345nn"
     },
     "adminUsername": {
-      "value": "companyBadmin"
+      "value": "admin"
     },
     "maxSessionHosts": {
       "value": 15
