@@ -13,9 +13,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
       {
         name: 'subnet-avd'
         properties: {
-          addressPrefixes: [
-            subnetAddressPrefix
-          ]
+          addressPrefix: subnetAddressPrefix
         }
       }
     ]
