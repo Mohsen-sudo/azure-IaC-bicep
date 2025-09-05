@@ -10,7 +10,7 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   location: location
   properties: {
     addressSpace: {
-      addressPrefixe: [
+      addressPrefixes: [
         '10.0.0.0/16' // Hardcoded VNet prefix
       ]
     }
