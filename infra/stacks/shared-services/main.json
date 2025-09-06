@@ -2,28 +2,8 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "adminUsername": {
-      "value": "Admin"
-    },
-    "adminPassword": {
-      "value": "NN12345nn" // Replace with your secure password
-    },
     "location": {
       "value": "northeurope"
-    },
-    "vnetAddressPrefixes": {
-      "value": [
-        "10.0.0.0/16"
-      ]
-    },
-    "subnetAddressPrefix": {
-      "value": "10.0.1.0/24"
-    },
-    "maxSessionHosts": {
-      "value": 5
-    },
-    "timestamp": {
-      "value": "2025-09-05T18:51:26Z"
     }
   }
 }
