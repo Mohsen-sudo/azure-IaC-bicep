@@ -2,9 +2,9 @@ param adminUsername string
 @secure()
 param adminPassword string
 param location string
-param vnetAddressPrefixes array = ['10.1.0.0/16']
-param subnetAddressPrefix string = '10.1.1.0/24'
-param maxSessionHosts int = 2
+param vnetAddressPrefixes array
+param subnetAddressPrefix string
+param maxSessionHosts int
 param timestamp string = utcNow() // valid default usage
 
 module vnet '../../modules/networking/vnet.bicep' = {
@@ -24,7 +24,6 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
     adminPassword: adminPassword
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
-    timestamp: timestamp
   }
 }
 
