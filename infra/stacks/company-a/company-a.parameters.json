@@ -3,7 +3,12 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "adminPassword": {
-      "value": "NN12345nn"
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV25momo"
+        },
+        "secretName": "CompanyAAdminPassword"
+      }
     },
     "adminUsername": {
       "value": "Aadmin"
