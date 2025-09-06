@@ -1,39 +1,146 @@
-@description('Location of the resource')
+@description('The name of the Network Security Group')
+param nsgName string
+
+@description('Location for the NSG')
 param location string
 
-@description('Name of the peering')
-param peeringName string
+@description('Optional: Array of additional custom security rules')
+param customRules array = []
 
-@description('Source VNet ID')
-param vnetId string
-
-@description('Remote VNet ID')
-param remoteVnetId string
-
-@description('Allow forwarded traffic')
-param allowForwardedTraffic bool = true
-
-@description('Allow gateway transit')
-param allowGatewayTransit bool = false
-
-@description('Use remote gateways')
-param useRemoteGateways bool = false
-
-@description('Allow virtual network access')
-param allowVirtualNetworkAccess bool = true
-
-resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-05-01' = {
-  name: '${last(split(vnetId, '/'))}/${peeringName}'
+resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
+  name: nsgName
   location: location
   properties: {
-    remoteVirtualNetwork: {
-      id: remoteVnetId
-    }
-    allowForwardedTraffic: allowForwardedTraffic
-    allowGatewayTransit: allowGatewayTransit
-    useRemoteGateways: useRemoteGateways
-    allowVirtualNetworkAccess: allowVirtualNetworkAccess
+    securityRules: [
+      // Allow AVD session hosts to connect to ADDS (LDAP, Kerberos, DNS, SMB)
+      {
+        name: 'Allow-ADDS-LDAP'
+        properties: {
+          priority: 100
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '389'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'VirtualNetwork'
+        }
+      }
+      {
+        name: 'Allow-ADDS-Kerberos'
+        properties: {
+          priority: 110
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '88'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'VirtualNetwork'
+        }
+      }
+      {
+        name: 'Allow-ADDS-DNS'
+        properties: {
+          priority: 120
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: 'Udp'
+          sourcePortRange: '*'
+          destinationPortRange: '53'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'VirtualNetwork'
+        }
+      }
+      {
+        name: 'Allow-ADDS-SMB'
+        properties: {
+          priority: 130
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '445'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'VirtualNetwork'
+        }
+      }
+      // Allow RDP inbound (for admin access; restrict in production!)
+      {
+        name: 'Allow-RDP-Inbound'
+        properties: {
+          priority: 200
+          direction: 'Inbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '3389'
+          sourceAddressPrefix: 'Internet'
+          destinationAddressPrefix: '*'
+        }
+      }
+      // Allow AVD infrastructure communications
+      {
+        name: 'Allow-AVD-Agent'
+        properties: {
+          priority: 210
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: [
+            '443'
+            '9354'
+            '9350'
+          ]
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'Internet'
+        }
+      }
+      // Allow communication within the subnet
+      {
+        name: 'Allow-Subnet-Internal'
+        properties: {
+          priority: 300
+          direction: 'Inbound'
+          access: 'Allow'
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: '*'
+        }
+      }
+      // Block all other inbound traffic
+      {
+        name: 'Deny-All-Inbound'
+        properties: {
+          priority: 4096
+          direction: 'Inbound'
+          access: 'Deny'
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+        }
+      }
+      // Block all other outbound traffic (optional, restrict if needed)
+      {
+        name: 'Deny-All-Outbound'
+        properties: {
+          priority: 4096
+          direction: 'Outbound'
+          access: 'Deny'
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '*'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+        }
+      }
+    ] ++ customRules
   }
 }
 
-output peeringId string = vnetPeering.id
+output nsgId string = nsg.id
