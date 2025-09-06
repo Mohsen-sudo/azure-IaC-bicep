@@ -63,7 +63,7 @@ resource vpnGwPublicIP 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
     name: 'Standard'
   }
   properties: {
-    allocationMethod: 'Dynamic'
+    publicIPAllocationMethod: 'Dynamic'
   }
 }
 
