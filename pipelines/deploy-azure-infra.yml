@@ -3,6 +3,13 @@ trigger:
     include:
       - main
 
+# ========================
+# Azure IaC Pipeline
+# ========================
+# Deploys shared services, then Company A & B infra in parallel
+# Each stage uses its own Azure subscription/service connection
+# Parameter files should NOT contain secrets in plain text; use Key Vault references if possible
+
 stages:
 - stage: SharedServices
   displayName: 'Deploy Shared Services'
@@ -21,10 +28,12 @@ stages:
         inlineScript: |
           az account set --subscription "Azure sub1"
           az group create --name rg-shared-services --location northeurope
-          az deployment group create `
+          $output = az deployment group create `
             --resource-group rg-shared-services `
             --template-file infra/stacks/shared-services/main.bicep `
-            --parameters "@infra/stacks/shared-services/main.json"
+            --parameters "@infra/stacks/shared-services/main.json" `
+            --output json
+          Write-Host "Shared Services Deployment Output: $output"
 
 - stage: CompanyA
   displayName: 'Deploy Company A'
@@ -44,10 +53,12 @@ stages:
         inlineScript: |
           az account set --subscription "Azure Sub-A"
           az group create --name rg-company-a --location northeurope
-          az deployment group create `
+          $output = az deployment group create `
             --resource-group rg-company-a `
             --template-file infra/stacks/company-a/main.bicep `
-            --parameters "@infra/stacks/company-a/company-a.parameters.json"
+            --parameters "@infra/stacks/company-a/company-a.parameters.json" `
+            --output json
+          Write-Host "Company A Deployment Output: $output"
 
 - stage: CompanyB
   displayName: 'Deploy Company B'
@@ -67,7 +78,17 @@ stages:
         inlineScript: |
           az account set --subscription "Azure Sub-B"
           az group create --name rg-company-b --location northeurope
-          az deployment group create `
+          $output = az deployment group create `
             --resource-group rg-company-b `
             --template-file infra/stacks/company-b/main.bicep `
-            --parameters "@infra/stacks/company-b/company-b.parameters.json"
+            --parameters "@infra/stacks/company-b/company-b.parameters.json" `
+            --output json
+          Write-Host "Company B Deployment Output: $output"
+
+# ========================
+# Best Practices/Reminders:
+# - Ensure parameter files do not store secrets directly; use Key Vault if needed.
+# - Ensure agent pool 'IaC-agent-pool' has permissions for Azure CLI.
+# - Validate Bicep template paths are correct.
+# - Capture deployment output for troubleshooting.
+# - Consider using variables for resource group/location if re-used.
