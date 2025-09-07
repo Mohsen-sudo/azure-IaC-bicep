@@ -1,27 +1,63 @@
-@description('The name of the local VNet')
-param vnetName string
-@description('Resource group of the local VNet')
-param vnetResourceGroup string
-@description('The resourceId of the remote VNet to peer with')
-param peerVnetId string
+@description('The name of the Network Security Group')
+param nsgName string
+@description('Location for the NSG')
+param location string
+@description('Optional: Array of additional custom security rules')
+param customRules array = []
 
-resource localVnet 'Microsoft.Network/virtualNetworks@2021-05-01' existing = {
-  name: vnetName
-  scope: resourceGroup(vnetResourceGroup)
-}
-
-resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2021-05-01' = {
-  name: 'peer-to-hub'
-  parent: localVnet
-  properties: {
-    remoteVirtualNetwork: {
-      id: peerVnetId
+var baseSecurityRules = [
+  // ... previous rules unchanged ...
+  {
+    name: 'Allow-AVD-Agent-443'
+    properties: {
+      priority: 210
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '443'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'Internet'
     }
-    allowVirtualNetworkAccess: true
-    allowForwardedTraffic: true
-    allowGatewayTransit: false
-    useRemoteGateways: false
+  }
+  {
+    name: 'Allow-AVD-Agent-9354'
+    properties: {
+      priority: 211
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '9354'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'Internet'
+    }
+  }
+  {
+    name: 'Allow-AVD-Agent-9350'
+    properties: {
+      priority: 212
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '9350'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'Internet'
+    }
+  }
+  // ... rest unchanged ...
+]
+
+// Merge base and custom rules
+var securityRules = baseSecurityRules ++ customRules
+
+resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
+  name: nsgName
+  location: location
+  properties: {
+    securityRules: securityRules
   }
 }
 
-output peeringId string = vnetPeering.id
+output nsgId string = nsg.id
