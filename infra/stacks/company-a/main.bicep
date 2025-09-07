@@ -48,11 +48,25 @@ module storage '../../modules/storage/storage.bicep' = {
   }
 }
 
+// --- Fetch the admin password from Key Vault ---
+resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
+  name: 'sharedServicesKV25momo'
+  scope: resourceGroup('rg-shared-services')
+}
+
+resource adminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' existing = {
+  parent: kv
+  name: adminPasswordSecretName
+}
+
+var adminPassword = adminPasswordSecret.properties.value
+
 module hostpool '../../modules/avd/hostpool.bicep' = {
   name: 'hostpoolDeployment'
   params: {
     location: location
     adminUsername: adminUsername
+    adminPassword: adminPassword // <-- Pass the secret value here
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
