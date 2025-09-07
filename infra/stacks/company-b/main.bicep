@@ -53,9 +53,10 @@ module storage '../../modules/storage/storage.bicep' = {
 }
 
 // --- Key Vault secret fetch ---
+// FIX: Scope must include the correct subscription from the resourceId!
 resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: last(split(keyVaultResourceId, '/'))
-  scope: resourceGroup(split(keyVaultResourceId, '/')[4])
+  scope: subscription(split(keyVaultResourceId, '/')[2]).resourceGroup(split(keyVaultResourceId, '/')[4])
 }
 
 resource adminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' existing = {
