@@ -12,7 +12,6 @@ param vmImageSku string = 'win10-21h2-avd'
 param vmImageVersion string = 'latest'
 param dnsServers array = []
 
-// Key Vault values
 param keyVaultResourceId string = '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV25momo'
 @allowed([
   'CompanyAAdminPassword'
@@ -74,13 +73,9 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
             id: keyVaultResourceId
           }
           vaultCertificates: []
-          vaultSecrets: [
-            {
-              secretName: adminPasswordSecretName
-            }
-          ]
         }
       ]
+      // You must provide the password using a parameter or Key Vault reference in the deployment pipeline, not in Bicep
       customData: base64('Add-Computer -DomainName ${domainName}; Restart-Computer -Force')
     }
     storageProfile: {
@@ -106,29 +101,30 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
         enabled: true
       }
     }
-    extensionProfile: {
-      extensions: [
-        {
-          name: 'FSLogixProfile'
-          properties: {
-            publisher: 'Microsoft.Compute'
-            type: 'CustomScriptExtension'
-            typeHandlerVersion: '1.10'
-            autoUpgradeMinorVersion: true
-            settings: {
-              fileUris: [
-                'https://raw.githubusercontent.com/MicrosoftDocs/fslogix-docs/master/scripts/Install-FSLogix.ps1'
-              ]
-              commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File Install-FSLogix.ps1 -StorageAccountId ${storageAccountId}'
-            }
-          }
-        }
-      ]
-    }
   }
   dependsOn: [
     sessionHostNICs
     hostPool
+  ]
+}]
+
+resource fslogixExtensions 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = [for i in range(0, maxSessionHosts): {
+  name: '${sessionHostVMs[i].name}/FSLogixProfile'
+  location: location
+  properties: {
+    publisher: 'Microsoft.Compute'
+    type: 'CustomScriptExtension'
+    typeHandlerVersion: '1.10'
+    autoUpgradeMinorVersion: true
+    settings: {
+      fileUris: [
+        'https://raw.githubusercontent.com/MicrosoftDocs/fslogix-docs/master/scripts/Install-FSLogix.ps1'
+      ]
+      commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File Install-FSLogix.ps1 -StorageAccountId ${storageAccountId}'
+    }
+  }
+  dependsOn: [
+    sessionHostVMs
   ]
 }]
 
