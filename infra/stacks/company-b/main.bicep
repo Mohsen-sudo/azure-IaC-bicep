@@ -1,5 +1,4 @@
 param adminUsername string
-param adminPassword string
 param location string
 param vnetAddressPrefixes array
 param subnetAddressPrefix string
@@ -81,7 +80,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
     storageAccountId: storage.outputs.storageAccountId
     keyVaultResourceId: keyVaultResourceId
     adminPasswordSecretName: adminPasswordSecretName
-    domainName: '' // Add if needed
+    domainName: ''
   }
 }
 
