@@ -55,7 +55,10 @@ module storage '../../modules/storage/storage.bicep' = {
 // FIX: Use resourceGroup(name, subscriptionId) for correct cross-subscription scoping
 resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: last(split(keyVaultResourceId, '/'))
-  scope: resourceGroup(split(keyVaultResourceId, '/')[4], split(keyVaultResourceId, '/')[2])
+  scope: resourceGroup(
+    split(keyVaultResourceId, '/')[4], // Resource group name
+    split(keyVaultResourceId, '/')[2]  // Subscription ID
+  )
 }
 
 resource adminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' existing = {
