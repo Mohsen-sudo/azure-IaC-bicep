@@ -13,6 +13,7 @@ module vnet '../../modules/networking/vnet.bicep' = {
     location: location
     addressPrefixes: vnetAddressPrefixes
     subnetAddressPrefix: subnetAddressPrefix
+    vnetName: 'vnet-companyB'
   }
 }
 
@@ -28,9 +29,9 @@ module nsg '../../modules/networking/nsg.bicep' = {
 module peering '../../modules/networking/peering.bicep' = {
   name: 'peeringDeployment'
   params: {
-    vnetName: vnet.outputs.vnetName // Ensure vnet.bicep outputs this
-    vnetResourceGroup: 'rg-company-b' // Replace with actual resource group
-    peerVnetId: '<hubVnet resource id>' // Replace with actual resource id
+    vnetName: vnet.outputs.vnetName
+    vnetResourceGroup: resourceGroup().name // or 'rg-company-b'
+    peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hub-vnet'
   }
 }
 
@@ -38,7 +39,7 @@ module storage '../../modules/storage/storage.bicep' = {
   name: 'storageDeployment'
   params: {
     location: location
-    storageAccountName: 'companybstorage' // Replace if needed
+    storageAccountName: 'companybstorage'
   }
 }
 
@@ -55,7 +56,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
       '10.0.20.4'
     ]
     storageAccountId: storage.outputs.storageAccountId
-    // Add additional params if needed
+    // Add additional params for domain join if needed
   }
 }
 
