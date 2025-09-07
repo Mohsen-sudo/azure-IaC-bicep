@@ -33,12 +33,11 @@ module nsg '../../modules/networking/nsg.bicep' = {
   }
 }
 
-// Deploy Peering
+// Deploy Peering (FIX: remove vnetResourceGroup param)
 module peering '../../modules/networking/peering.bicep' = {
   name: 'peeringDeployment'
   params: {
     vnetName: vnet.outputs.vnetName
-    vnetResourceGroup: resourceGroup().name
     peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hub-vnet'
   }
 }
@@ -52,7 +51,7 @@ module storage '../../modules/storage/storage.bicep' = {
   }
 }
 
-// --- Key Vault secret fetch (FIX) ---
+// --- Key Vault secret fetch ---
 resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: last(split(keyVaultResourceId, '/'))
   scope: resourceGroup(split(keyVaultResourceId, '/')[4])
@@ -71,7 +70,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
   params: {
     location: location
     adminUsername: adminUsername
-    adminPassword: adminPassword // <-- required!
+    adminPassword: adminPassword
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
