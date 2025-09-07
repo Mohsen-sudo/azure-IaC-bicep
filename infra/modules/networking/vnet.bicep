@@ -1,7 +1,7 @@
 param location string
 param addressPrefixes array
 param subnetAddressPrefix string
-param vnetName string = 'vnet-companyA' // Default, can override in main.bicep
+param vnetName string = 'vnet-companyA' // Default; override for Company B in main.bicep
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: vnetName
