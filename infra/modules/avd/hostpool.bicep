@@ -11,7 +11,6 @@ param vmImageOffer string = 'windows-10'
 param vmImageSku string = 'win10-21h2-avd'
 param vmImageVersion string = 'latest'
 param dnsServers array = []
-param timestamp string = utcNow()
 
 // Key Vault values
 param keyVaultResourceId string = '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV25momo'
@@ -35,7 +34,6 @@ resource hostPool 'Microsoft.DesktopVirtualization/hostPools@2024-09-01-privatep
   }
 }
 
-// Create NICs for session hosts
 resource sessionHostNICs 'Microsoft.Network/networkInterfaces@2023-05-01' = [for i in range(0, maxSessionHosts): {
   name: '${companyPrefix}-avd-nic-${i}'
   location: location
@@ -56,7 +54,6 @@ resource sessionHostNICs 'Microsoft.Network/networkInterfaces@2023-05-01' = [for
   }
 }]
 
-// Create session host VMs
 resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i in range(0, maxSessionHosts): {
   name: '${companyPrefix}-avd-host-${i}'
   location: location
@@ -84,11 +81,7 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
           ]
         }
       ]
-      customData: base64(concat(
-        "#ps1_sysnative\n",
-        "Add-Computer -DomainName ", domainName, "\n",
-        "Restart-Computer -Force"
-      ))
+      customData: base64('Add-Computer -DomainName ${domainName}; Restart-Computer -Force')
     }
     storageProfile: {
       imageReference: {
@@ -126,7 +119,7 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
               fileUris: [
                 'https://raw.githubusercontent.com/MicrosoftDocs/fslogix-docs/master/scripts/Install-FSLogix.ps1'
               ]
-              commandToExecute: concat('powershell -ExecutionPolicy Unrestricted -File Install-FSLogix.ps1 -StorageAccountId ', storageAccountId)
+              commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File Install-FSLogix.ps1 -StorageAccountId ${storageAccountId}'
             }
           }
         }
