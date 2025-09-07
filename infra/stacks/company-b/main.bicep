@@ -1,4 +1,5 @@
 param adminUsername string
+param adminPassword string
 param location string
 param vnetAddressPrefixes array
 param subnetAddressPrefix string
