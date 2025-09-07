@@ -13,7 +13,7 @@ module vnet '../../modules/networking/vnet.bicep' = {
     location: location
     addressPrefixes: vnetAddressPrefixes
     subnetAddressPrefix: subnetAddressPrefix
-    vnetName: 'vnet-companyA' // Only if your vnet.bicep supports vnetName param
+    vnetName: 'vnet-companyA'
   }
 }
 
@@ -30,8 +30,8 @@ module peering '../../modules/networking/peering.bicep' = {
   name: 'peeringDeployment'
   params: {
     vnetName: vnet.outputs.vnetName
-    vnetResourceGroup: 'rg-company-a' // or: resourceGroup().name
-    peerVnetId: '<hubVnet resource id>' // Replace with your actual Hub VNet resource ID
+    vnetResourceGroup: resourceGroup().name // e.g., 'rg-company-a'
+    peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hub-vnet'
   }
 }
 
@@ -56,7 +56,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
       '10.0.10.4'
     ]
     storageAccountId: storage.outputs.storageAccountId
-    // Add domain join params if required (domain, OU, etc)
+    // Add additional params for domain join if needed
   }
 }
 
