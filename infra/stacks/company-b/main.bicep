@@ -6,6 +6,7 @@ param maxSessionHosts int
 
 @description('Resource ID of Key Vault containing VM admin password')
 param keyVaultResourceId string
+
 @allowed([
   'CompanyBAdminPassword'
   'CompanyAAdminPassword'
@@ -51,30 +52,15 @@ module storage '../../modules/storage/storage.bicep' = {
   }
 }
 
-// --- Key Vault secret fetch (cross-subscription safe) ---
-resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
-  name: last(split(keyVaultResourceId, '/'))
-  scope: resourceGroup(
-    split(keyVaultResourceId, '/')[4], // resource group name
-    split(keyVaultResourceId, '/')[2]  // subscription ID
-  )
-}
-
-resource adminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' existing = {
-  parent: kv
-  name: adminPasswordSecretName
-}
-
-// Use secretUri for runtime retrieval; actual secret value can't be fetched in Bicep
-var adminPasswordSecretUri = adminPasswordSecret.properties.secretUri
-
 // Deploy Hostpool
 module hostpool '../../modules/avd/hostpool.bicep' = {
   name: 'hostpoolDeployment'
   params: {
     location: location
     adminUsername: adminUsername
-    adminPasswordSecretUri: adminPasswordSecretUri
+    // Pass KV reference info, NOT the value
+    keyVaultResourceId: keyVaultResourceId
+    adminPasswordSecretName: adminPasswordSecretName
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
@@ -82,8 +68,6 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
       '10.0.20.4'
     ]
     storageAccountId: storage.outputs.storageAccountId
-    keyVaultResourceId: keyVaultResourceId
-    adminPasswordSecretName: adminPasswordSecretName
     domainName: ''
   }
 }
@@ -99,10 +83,8 @@ module workspace '../../modules/avd/workspace.bicep' = {
 
 // --- Debug outputs ---
 output kvResourceIdDebug string = keyVaultResourceId
-output kvSubIdDebug string = split(keyVaultResourceId, '/')[2]
-output kvRgDebug string = split(keyVaultResourceId, '/')[4]
 output kvNameDebug string = last(split(keyVaultResourceId, '/'))
-output adminPasswordSecretUri string = adminPasswordSecretUri
+output adminPasswordSecretNameDebug string = adminPasswordSecretName
 output vnetName string = vnet.outputs.vnetName
 output subnetId string = vnet.outputs.subnetId
 output storageAccountId string = storage.outputs.storageAccountId
