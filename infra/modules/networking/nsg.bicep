@@ -154,7 +154,7 @@ var baseSecurityRules = [
 ]
 
 // Merge base and custom rules
-var securityRules = baseSecurityRules ++ customRules
+var securityRules = concat(baseSecurityRules, customRules)
 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
   name: nsgName
