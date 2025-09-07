@@ -12,6 +12,7 @@ param keyVaultResourceId string
 ])
 param adminPasswordSecretName string = 'CompanyBAdminPassword'
 
+// Deploy VNet
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
   params: {
@@ -22,6 +23,7 @@ module vnet '../../modules/networking/vnet.bicep' = {
   }
 }
 
+// Deploy NSG
 module nsg '../../modules/networking/nsg.bicep' = {
   name: 'nsgDeployment'
   params: {
@@ -31,15 +33,17 @@ module nsg '../../modules/networking/nsg.bicep' = {
   }
 }
 
+// Deploy Peering
 module peering '../../modules/networking/peering.bicep' = {
   name: 'peeringDeployment'
   params: {
     vnetName: vnet.outputs.vnetName
-    vnetResourceGroup: resourceGroup().name // e.g., 'rg-company-b'
+    vnetResourceGroup: resourceGroup().name
     peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hub-vnet'
   }
 }
 
+// Deploy Storage Account
 module storage '../../modules/storage/storage.bicep' = {
   name: 'storageDeployment'
   params: {
@@ -48,11 +52,26 @@ module storage '../../modules/storage/storage.bicep' = {
   }
 }
 
+// --- Key Vault secret fetch (FIX) ---
+resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
+  name: last(split(keyVaultResourceId, '/'))
+  scope: resourceGroup(split(keyVaultResourceId, '/')[4])
+}
+
+resource adminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' existing = {
+  parent: kv
+  name: adminPasswordSecretName
+}
+
+var adminPassword = adminPasswordSecret.properties.value
+
+// Deploy Hostpool
 module hostpool '../../modules/avd/hostpool.bicep' = {
   name: 'hostpoolDeployment'
   params: {
     location: location
     adminUsername: adminUsername
+    adminPassword: adminPassword // <-- required!
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
@@ -66,6 +85,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
   }
 }
 
+// Deploy Workspace
 module workspace '../../modules/avd/workspace.bicep' = {
   name: 'workspaceDeployment'
   params: {
