@@ -3,12 +3,6 @@ trigger:
     include:
       - main
 
-# ========================
-# Azure IaC Pipeline
-# ========================
-# Deploys shared services, then Company A & B infra in parallel
-# Each stage uses its own Azure subscription/service connection
-# Parameter files should NOT contain secrets in plain text; use Key Vault references if possible
 
 stages:
 - stage: SharedServices
