@@ -38,7 +38,6 @@ module peering '../../modules/networking/peering.bicep' = {
   name: 'peeringDeployment'
   params: {
     vnetName: vnet.outputs.vnetName
-    // FIX: Use correct VNet name as per Azure resources
     peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet'
   }
 }
@@ -53,10 +52,10 @@ module storage '../../modules/storage/storage.bicep' = {
 }
 
 // --- Key Vault secret fetch ---
-// FIX: Scope must include the correct subscription from the resourceId!
+// FIX: Use resourceGroup(name, subscriptionId) for correct cross-subscription scoping
 resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: last(split(keyVaultResourceId, '/'))
-  scope: subscription(split(keyVaultResourceId, '/')[2]).resourceGroup(split(keyVaultResourceId, '/')[4])
+  scope: resourceGroup(split(keyVaultResourceId, '/')[4], split(keyVaultResourceId, '/')[2])
 }
 
 resource adminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' existing = {
