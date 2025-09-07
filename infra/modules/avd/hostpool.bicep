@@ -12,6 +12,7 @@ param vmImageSku string = 'win10-21h2-avd'
 param vmImageVersion string = 'latest'
 param dnsServers array = []
 
+@description('Resource ID of the Key Vault containing the admin password secret')
 param keyVaultResourceId string = '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV25momo'
 @allowed([
   'CompanyAAdminPassword'
@@ -63,19 +64,22 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
     osProfile: {
       computerName: '${companyPrefix}-avd-host-${i}'
       adminUsername: adminUsername
-      windowsConfiguration: {
-        enableAutomaticUpdates: true
-        provisionVMAgent: true
-      }
       secrets: [
         {
           sourceVault: {
             id: keyVaultResourceId
           }
-          vaultCertificates: []
+          vaultSecretGroups: [
+            {
+              secretName: adminPasswordSecretName
+            }
+          ]
         }
       ]
-      // You must provide the password using a parameter or Key Vault reference in the deployment pipeline, not in Bicep
+      windowsConfiguration: {
+        enableAutomaticUpdates: true
+        provisionVMAgent: true
+      }
       customData: base64('Add-Computer -DomainName ${domainName}; Restart-Computer -Force')
     }
     storageProfile: {
