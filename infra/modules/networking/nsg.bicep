@@ -5,8 +5,74 @@ param location string
 @description('Optional: Array of additional custom security rules')
 param customRules array = []
 
+// Base NSG rules for AVD and ADDS
 var baseSecurityRules = [
-  // ... previous rules unchanged ...
+  {
+    name: 'Allow-ADDS-LDAP'
+    properties: {
+      priority: 100
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '389'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  {
+    name: 'Allow-ADDS-Kerberos'
+    properties: {
+      priority: 110
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '88'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  {
+    name: 'Allow-ADDS-DNS'
+    properties: {
+      priority: 120
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Udp'
+      sourcePortRange: '*'
+      destinationPortRange: '53'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  {
+    name: 'Allow-ADDS-SMB'
+    properties: {
+      priority: 130
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '445'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  {
+    name: 'Allow-RDP-Inbound'
+    properties: {
+      priority: 200
+      direction: 'Inbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '3389'
+      sourceAddressPrefix: 'Internet'
+      destinationAddressPrefix: '*'
+    }
+  }
+  // Split AVD Agent ports into individual rules
   {
     name: 'Allow-AVD-Agent-443'
     properties: {
@@ -46,7 +112,45 @@ var baseSecurityRules = [
       destinationAddressPrefix: 'Internet'
     }
   }
-  // ... rest unchanged ...
+  {
+    name: 'Allow-Subnet-Internal'
+    properties: {
+      priority: 300
+      direction: 'Inbound'
+      access: 'Allow'
+      protocol: '*'
+      sourcePortRange: '*'
+      destinationPortRange: '*'
+      sourceAddressPrefix: 'VirtualNetwork'
+      destinationAddressPrefix: '*'
+    }
+  }
+  {
+    name: 'Deny-All-Inbound'
+    properties: {
+      priority: 4096
+      direction: 'Inbound'
+      access: 'Deny'
+      protocol: '*'
+      sourcePortRange: '*'
+      destinationPortRange: '*'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: '*'
+    }
+  }
+  {
+    name: 'Deny-All-Outbound'
+    properties: {
+      priority: 4096
+      direction: 'Outbound'
+      access: 'Deny'
+      protocol: '*'
+      sourcePortRange: '*'
+      destinationPortRange: '*'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: '*'
+    }
+  }
 ]
 
 // Merge base and custom rules
