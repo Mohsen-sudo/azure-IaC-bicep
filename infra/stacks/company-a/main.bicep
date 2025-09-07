@@ -20,8 +20,8 @@ module nsg '../../modules/networking/nsg.bicep' = {
   name: 'nsgDeployment'
   params: {
     location: location
-    subnetId: vnet.outputs.subnetId
-    // Add security rule parameters as needed
+    nsgName: 'companyA-nsg'
+    customRules: [] // Optional, remove or fill as needed
   }
 }
 
@@ -29,7 +29,8 @@ module peering '../../modules/networking/peering.bicep' = {
   name: 'peeringDeployment'
   params: {
     location: location
-    vnetId: vnet.outputs.vnetId
+    vnetName: vnet.name // or pass vnet.outputs.vnetName if your module requires the name
+    vnetResourceGroup: 'rg-company-a' // replace with your actual RG name
     peerVnetId: '<hubVnet resource id>'
   }
 }
@@ -38,7 +39,7 @@ module storage '../../modules/storage/storage.bicep' = {
   name: 'storageDeployment'
   params: {
     location: location
-    // Add storage parameters as needed
+    storageAccountName: 'companyastorage' // replace with a valid name if needed
   }
 }
 
