@@ -5,6 +5,7 @@ param location string
 @description('Optional: Array of additional custom security rules')
 param customRules array = []
 
+// Base NSG rules for AVD and ADDS
 var baseSecurityRules = [
   {
     name: 'Allow-ADDS-LDAP'
@@ -129,6 +130,7 @@ var baseSecurityRules = [
   }
 ]
 
+// Merge base and custom rules
 var securityRules = baseSecurityRules ++ customRules
 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
