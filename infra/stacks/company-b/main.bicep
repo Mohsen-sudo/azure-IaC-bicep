@@ -1,120 +1,94 @@
-param location string
 param adminUsername string
-@secure()
-param adminPassword string
-param companyPrefix string = 'companyA'
+param location string
+param vnetAddressPrefixes array
+param subnetAddressPrefix string
 param maxSessionHosts int
-param subnetId string
-param domainName string
-param storageAccountId string // For FSLogix profile container
-param vmSize string = 'Standard_D2s_v3'
-param vmImagePublisher string = 'MicrosoftWindowsDesktop'
-param vmImageOffer string = 'windows-10'
-param vmImageSku string = 'win10-21h2-avd'
-param vmImageVersion string = 'latest'
-param dnsServers array = []
 
-resource hostPool 'Microsoft.DesktopVirtualization/hostPools@2024-09-01-privatepreview' = {
-  name: '${companyPrefix}-hostpool'
-  location: location
-  properties: {
-    friendlyName: '${companyPrefix} Hostpool'
-    description: 'AVD Hostpool for ${companyPrefix}'
-    hostPoolType: 'Pooled'
-    maxSessionLimit: maxSessionHosts
-    loadBalancerType: 'BreadthFirst'
-    personalDesktopAssignmentType: 'Automatic'
-    customRdpProperty: ''
+@description('Resource ID of Key Vault containing VM admin password')
+param keyVaultResourceId string
+
+@allowed([
+  'CompanyBAdminPassword'
+  'CompanyAAdminPassword'
+])
+param adminPasswordSecretName string = 'CompanyBAdminPassword'
+
+// Securely fetch the VM admin password from Key Vault at deployment time
+var adminPassword = reference(keyVaultResourceId, '2018-02-14').secrets[adminPasswordSecretName]
+
+// Deploy VNet
+module vnet '../../modules/networking/vnet.bicep' = {
+  name: 'vnetDeployment'
+  params: {
+    location: location
+    addressPrefixes: vnetAddressPrefixes
+    subnetAddressPrefix: subnetAddressPrefix
+    vnetName: 'vnet-companyB'
   }
 }
 
-resource sessionHostNICs 'Microsoft.Network/networkInterfaces@2023-05-01' = [for i in range(0, maxSessionHosts): {
-  name: '${companyPrefix}-avd-nic-${i}'
-  location: location
-  properties: {
-    ipConfigurations: [
-      {
-        name: 'ipconfig1'
-        properties: {
-          subnet: {
-            id: subnetId
-          }
-        }
-      }
+// Deploy NSG
+module nsg '../../modules/networking/nsg.bicep' = {
+  name: 'nsgDeployment'
+  params: {
+    location: location
+    nsgName: 'companyB-nsg'
+    customRules: []
+  }
+}
+
+// Deploy Peering
+module peering '../../modules/networking/peering.bicep' = {
+  name: 'peeringDeployment'
+  params: {
+    vnetName: vnet.outputs.vnetName
+    peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet'
+  }
+}
+
+// Deploy Storage Account
+module storage '../../modules/storage/storage.bicep' = {
+  name: 'storageDeployment'
+  params: {
+    location: location
+    storageAccountName: 'companybstorage'
+  }
+}
+
+// Deploy Hostpool (make sure all required params are provided)
+module hostpool '../../modules/avd/hostpool.bicep' = {
+  name: 'hostpoolDeployment'
+  params: {
+    location: location
+    adminUsername: adminUsername
+    adminPassword: adminPassword
+    maxSessionHosts: maxSessionHosts
+    subnetId: vnet.outputs.subnetId
+    dnsServers: [
+      '10.0.20.5'
+      '10.0.20.4'
     ]
-    dnsSettings: !empty(dnsServers) ? {
-      dnsServers: dnsServers
-    } : null
+    storageAccountId: storage.outputs.storageAccountId
+    domainName: 'corp.mohsenlab.local'
+    // companyPrefix, vmSize, vmImagePublisher, etc. will use defaults from module unless you override
   }
-}]
+}
 
-resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i in range(0, maxSessionHosts): {
-  name: '${companyPrefix}-avd-host-${i}'
-  location: location
-  properties: {
-    hardwareProfile: {
-      vmSize: vmSize
-    }
-    osProfile: {
-      computerName: '${companyPrefix}-avd-host-${i}'
-      adminUsername: adminUsername
-      adminPassword: adminPassword
-      windowsConfiguration: {
-        enableAutomaticUpdates: true
-        provisionVMAgent: true
-      }
-      customData: base64('Add-Computer -DomainName ${domainName}; Restart-Computer -Force')
-    }
-    storageProfile: {
-      imageReference: {
-        publisher: vmImagePublisher
-        offer: vmImageOffer
-        sku: vmImageSku
-        version: vmImageVersion
-      }
-      osDisk: {
-        createOption: 'FromImage'
-      }
-    }
-    networkProfile: {
-      networkInterfaces: [
-        {
-          id: sessionHostNICs[i].id
-        }
-      ]
-    }
-    diagnosticsProfile: {
-      bootDiagnostics: {
-        enabled: true
-      }
-    }
+// Deploy Workspace
+module workspace '../../modules/avd/workspace.bicep' = {
+  name: 'workspaceDeployment'
+  params: {
+    location: location
+    hostPoolId: hostpool.outputs.hostPoolId
   }
-  dependsOn: [
-    sessionHostNICs
-    hostPool
-  ]
-}]
+}
 
-resource fslogixExtensions 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = [for i in range(0, maxSessionHosts): {
-  name: '${sessionHostVMs[i].name}/FSLogixProfile'
-  location: location
-  properties: {
-    publisher: 'Microsoft.Compute'
-    type: 'CustomScriptExtension'
-    typeHandlerVersion: '1.10'
-    autoUpgradeMinorVersion: true
-    settings: {
-      fileUris: [
-        'https://raw.githubusercontent.com/MicrosoftDocs/fslogix-docs/master/scripts/Install-FSLogix.ps1'
-      ]
-      commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File Install-FSLogix.ps1 -StorageAccountId ${storageAccountId}'
-    }
-  }
-  dependsOn: [
-    sessionHostVMs
-  ]
-}]
-
-output hostPoolId string = hostPool.id
-output sessionHostVMNames array = [for i in range(0, maxSessionHosts): '${companyPrefix}-avd-host-${i}']
-output sessionHostNICNames array = [for i in range(0, maxSessionHosts): '${companyPrefix}-avd-nic-${i}']
+// --- Debug outputs (no secrets!) ---
+output kvResourceIdDebug string = keyVaultResourceId
+output kvNameDebug string = last(split(keyVaultResourceId, '/'))
+output adminPasswordSecretNameDebug string = adminPasswordSecretName
+output vnetName string = vnet.outputs.vnetName
+output subnetId string = vnet.outputs.subnetId
+output storageAccountId string = storage.outputs.storageAccountId
+output hostPoolId string = hostpool.outputs.hostPoolId
+output workspaceId string = workspace.outputs.workspaceId
