@@ -1,5 +1,7 @@
 param location string
 param adminUsername string
+@secure()
+param adminPassword string
 param companyPrefix string = 'companyA'
 param maxSessionHosts int
 param subnetId string
@@ -64,18 +66,7 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
     osProfile: {
       computerName: '${companyPrefix}-avd-host-${i}'
       adminUsername: adminUsername
-      secrets: [
-        {
-          sourceVault: {
-            id: keyVaultResourceId
-          }
-          vaultSecretGroups: [
-            {
-              secretName: adminPasswordSecretName
-            }
-          ]
-        }
-      ]
+      adminPassword: adminPassword
       windowsConfiguration: {
         enableAutomaticUpdates: true
         provisionVMAgent: true
