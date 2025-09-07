@@ -83,7 +83,6 @@ stages:
             --resource-group rg-company-b `
             --template-file infra/stacks/company-b/main.bicep `
             --parameters "@infra/stacks/company-b/company-b.parameters.json" `
-                         adminPassword="$(CompanyBAdminPassword)" `
             --output json
           Write-Host "Company B Deployment Output: $output"
 
