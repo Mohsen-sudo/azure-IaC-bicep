@@ -1,9 +1,10 @@
 param location string
 param addressPrefixes array
 param subnetAddressPrefix string
+param vnetName string = 'vnet-companyA' // Default, can override in main.bicep
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
-  name: 'vnet-companyA'
+  name: vnetName
   location: location
   properties: {
     addressSpace: {
@@ -22,3 +23,4 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
 
 output subnetId string = vnet.properties.subnets[0].id
 output vnetId string = vnet.id
+output vnetName string = vnet.name
