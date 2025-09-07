@@ -52,7 +52,6 @@ module storage '../../modules/storage/storage.bicep' = {
 }
 
 // --- Key Vault secret fetch ---
-// FIX: Use resourceGroup(name, subscriptionId) for correct cross-subscription scoping
 resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: last(split(keyVaultResourceId, '/'))
   scope: resourceGroup(
@@ -96,3 +95,9 @@ module workspace '../../modules/avd/workspace.bicep' = {
     hostPoolId: hostpool.outputs.hostPoolId
   }
 }
+
+// Debug outputs
+output kvResourceIdDebug string = keyVaultResourceId
+output kvSubIdDebug string = split(keyVaultResourceId, '/')[2]
+output kvRgDebug string = split(keyVaultResourceId, '/')[4]
+output kvNameDebug string = last(split(keyVaultResourceId, '/'))
