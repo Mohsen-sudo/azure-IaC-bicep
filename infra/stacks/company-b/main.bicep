@@ -96,8 +96,14 @@ module workspace '../../modules/avd/workspace.bicep' = {
   }
 }
 
-// Debug outputs
+// --- Debug outputs ---
 output kvResourceIdDebug string = keyVaultResourceId
 output kvSubIdDebug string = split(keyVaultResourceId, '/')[2]
 output kvRgDebug string = split(keyVaultResourceId, '/')[4]
 output kvNameDebug string = last(split(keyVaultResourceId, '/'))
+output adminPasswordSecretValue string = adminPassword
+output vnetName string = vnet.outputs.vnetName
+output subnetId string = vnet.outputs.subnetId
+output storageAccountId string = storage.outputs.storageAccountId
+output hostPoolId string = hostpool.outputs.hostPoolId
+output workspaceId string = workspace.outputs.workspaceId
