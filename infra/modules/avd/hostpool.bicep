@@ -14,14 +14,6 @@ param vmImageSku string = 'win10-21h2-avd'
 param vmImageVersion string = 'latest'
 param dnsServers array = []
 
-@description('Resource ID of the Key Vault containing the admin password secret')
-param keyVaultResourceId string = '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV25momo'
-@allowed([
-  'CompanyAAdminPassword'
-  'CompanyBAdminPassword'
-])
-param adminPasswordSecretName string = 'CompanyAAdminPassword'
-
 resource hostPool 'Microsoft.DesktopVirtualization/hostPools@2024-09-01-privatepreview' = {
   name: '${companyPrefix}-hostpool'
   location: location
