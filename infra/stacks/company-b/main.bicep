@@ -55,8 +55,8 @@ module storage '../../modules/storage/storage.bicep' = {
 resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: last(split(keyVaultResourceId, '/'))
   scope: resourceGroup(
-    split(keyVaultResourceId, '/')[2], // resource group name
-    split(keyVaultResourceId, '/')[4]  // subscription ID
+    split(keyVaultResourceId, '/')[4], // resource group name
+    split(keyVaultResourceId, '/')[2]  // subscription ID
   )
 }
 
