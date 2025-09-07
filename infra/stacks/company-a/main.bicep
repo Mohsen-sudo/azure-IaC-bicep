@@ -1,11 +1,16 @@
 param adminUsername string
-@secure()
-param adminPassword string
 param location string
 param vnetAddressPrefixes array
 param subnetAddressPrefix string
 param maxSessionHosts int
-param timestamp string = utcNow()
+
+@description('Resource ID of Key Vault containing VM admin password')
+param keyVaultResourceId string
+@allowed([
+  'CompanyAAdminPassword'
+  'CompanyBAdminPassword'
+])
+param adminPasswordSecretName string = 'CompanyAAdminPassword'
 
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
@@ -30,7 +35,7 @@ module peering '../../modules/networking/peering.bicep' = {
   name: 'peeringDeployment'
   params: {
     vnetName: vnet.outputs.vnetName
-    vnetResourceGroup: resourceGroup().name // e.g., 'rg-company-a'
+    vnetResourceGroup: resourceGroup().name
     peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hub-vnet'
   }
 }
@@ -48,7 +53,6 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
   params: {
     location: location
     adminUsername: adminUsername
-    adminPassword: adminPassword
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
@@ -56,7 +60,9 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
       '10.0.10.4'
     ]
     storageAccountId: storage.outputs.storageAccountId
-    // Add additional params for domain join if needed
+    keyVaultResourceId: keyVaultResourceId
+    adminPasswordSecretName: adminPasswordSecretName
+    domainName: '' // Add if needed
   }
 }
 
