@@ -1,14 +1,11 @@
 @description('The name of the Network Security Group')
 param nsgName string
-
 @description('Location for the NSG')
 param location string
-
 @description('Optional: Array of additional custom security rules')
 param customRules array = []
 
 var baseSecurityRules = [
-  // Allow AVD session hosts to connect to ADDS (LDAP, Kerberos, DNS, SMB)
   {
     name: 'Allow-ADDS-LDAP'
     properties: {
@@ -61,7 +58,6 @@ var baseSecurityRules = [
       destinationAddressPrefix: 'VirtualNetwork'
     }
   }
-  // Allow RDP inbound (for admin access; restrict in production!)
   {
     name: 'Allow-RDP-Inbound'
     properties: {
@@ -75,7 +71,6 @@ var baseSecurityRules = [
       destinationAddressPrefix: '*'
     }
   }
-  // Allow AVD infrastructure communications
   {
     name: 'Allow-AVD-Agent'
     properties: {
@@ -93,7 +88,6 @@ var baseSecurityRules = [
       destinationAddressPrefix: 'Internet'
     }
   }
-  // Allow communication within the subnet
   {
     name: 'Allow-Subnet-Internal'
     properties: {
@@ -107,7 +101,6 @@ var baseSecurityRules = [
       destinationAddressPrefix: '*'
     }
   }
-  // Block all other inbound traffic
   {
     name: 'Deny-All-Inbound'
     properties: {
@@ -121,7 +114,6 @@ var baseSecurityRules = [
       destinationAddressPrefix: '*'
     }
   }
-  // Block all other outbound traffic (optional, restrict if needed)
   {
     name: 'Deny-All-Outbound'
     properties: {
@@ -137,7 +129,6 @@ var baseSecurityRules = [
   }
 ]
 
-// Concatenate base and custom rules
 var securityRules = baseSecurityRules ++ customRules
 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
