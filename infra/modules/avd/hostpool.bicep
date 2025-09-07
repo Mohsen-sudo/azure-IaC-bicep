@@ -1,22 +1,25 @@
 param location string
 param adminUsername string
-@secure()
-param adminPassword string
+param companyPrefix string = 'companyA'
 param maxSessionHosts int
 param subnetId string
 param domainName string
-param domainJoinUser string
-@secure()
-param domainJoinPassword string
 param storageAccountId string // For FSLogix profile container
 param vmSize string = 'Standard_D2s_v3'
 param vmImagePublisher string = 'MicrosoftWindowsDesktop'
 param vmImageOffer string = 'windows-10'
 param vmImageSku string = 'win10-21h2-avd'
 param vmImageVersion string = 'latest'
-param companyPrefix string = 'companyA'
 param dnsServers array = []
 param timestamp string = utcNow()
+
+// Key Vault values
+param keyVaultResourceId string = '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV25momo'
+@allowed([
+  'CompanyAAdminPassword'
+  'CompanyBAdminPassword'
+])
+param adminPasswordSecretName string = 'CompanyAAdminPassword'
 
 resource hostPool 'Microsoft.DesktopVirtualization/hostPools@2024-09-01-privatepreview' = {
   name: '${companyPrefix}-hostpool'
@@ -47,7 +50,6 @@ resource sessionHostNICs 'Microsoft.Network/networkInterfaces@2023-05-01' = [for
         }
       }
     ]
-    // Optional: set DNS servers if provided
     dnsSettings: !empty(dnsServers) ? {
       dnsServers: dnsServers
     } : null
@@ -65,17 +67,27 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
     osProfile: {
       computerName: '${companyPrefix}-avd-host-${i}'
       adminUsername: adminUsername
-      adminPassword: adminPassword
       windowsConfiguration: {
         enableAutomaticUpdates: true
         provisionVMAgent: true
       }
-      secrets: []
+      secrets: [
+        {
+          sourceVault: {
+            id: keyVaultResourceId
+          }
+          vaultCertificates: []
+          vaultSecrets: [
+            {
+              secretName: adminPasswordSecretName
+            }
+          ]
+        }
+      ]
       customData: base64(concat(
         "#ps1_sysnative\n",
-        "Add-Computer -DomainName ", domainName,
-        " -Credential (New-Object System.Management.Automation.PSCredential('", domainJoinUser, "',(ConvertTo-SecureString '", domainJoinPassword, "' -AsPlainText -Force)))",
-        "\nRestart-Computer -Force"
+        "Add-Computer -DomainName ", domainName, "\n",
+        "Restart-Computer -Force"
       ))
     }
     storageProfile: {
@@ -112,7 +124,6 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
             autoUpgradeMinorVersion: true
             settings: {
               fileUris: [
-                // Reference your FSLogix install script here (public or private)
                 'https://raw.githubusercontent.com/MicrosoftDocs/fslogix-docs/master/scripts/Install-FSLogix.ps1'
               ]
               commandToExecute: concat('powershell -ExecutionPolicy Unrestricted -File Install-FSLogix.ps1 -StorageAccountId ', storageAccountId)
