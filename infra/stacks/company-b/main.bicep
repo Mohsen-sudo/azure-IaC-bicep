@@ -51,12 +51,12 @@ module storage '../../modules/storage/storage.bicep' = {
   }
 }
 
-// --- Key Vault secret fetch ---
+// --- Key Vault secret fetch (cross-subscription safe) ---
 resource kv 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: last(split(keyVaultResourceId, '/'))
   scope: resourceGroup(
-    split(keyVaultResourceId, '/')[2], // Resource group name
-    split(keyVaultResourceId, '/')[4]  // Subscription ID
+    split(keyVaultResourceId, '/')[2], // resource group name
+    split(keyVaultResourceId, '/')[4]  // subscription ID
   )
 }
 
@@ -65,7 +65,8 @@ resource adminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' exis
   name: adminPasswordSecretName
 }
 
-var adminPassword = adminPasswordSecret.properties.value
+// Use secretUri for runtime retrieval; actual secret value can't be fetched in Bicep
+var adminPasswordSecretUri = adminPasswordSecret.properties.secretUri
 
 // Deploy Hostpool
 module hostpool '../../modules/avd/hostpool.bicep' = {
@@ -73,7 +74,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
   params: {
     location: location
     adminUsername: adminUsername
-    adminPassword: adminPassword
+    adminPasswordSecretUri: adminPasswordSecretUri
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
@@ -101,7 +102,7 @@ output kvResourceIdDebug string = keyVaultResourceId
 output kvSubIdDebug string = split(keyVaultResourceId, '/')[2]
 output kvRgDebug string = split(keyVaultResourceId, '/')[4]
 output kvNameDebug string = last(split(keyVaultResourceId, '/'))
-output adminPasswordSecretValue string = adminPassword
+output adminPasswordSecretUri string = adminPasswordSecretUri
 output vnetName string = vnet.outputs.vnetName
 output subnetId string = vnet.outputs.subnetId
 output storageAccountId string = storage.outputs.storageAccountId
