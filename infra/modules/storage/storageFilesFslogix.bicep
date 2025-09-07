@@ -1,8 +1,8 @@
 param location string
-param storageName string
+param storageAccountName string
 
-resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
-  name: storageName
+resource storage 'Microsoft.Storage/storageAccounts@2022-09-01' = {
+  name: storageAccountName
   location: location
   sku: {
     name: 'Standard_LRS'
