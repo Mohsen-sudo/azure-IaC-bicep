@@ -13,6 +13,7 @@ module vnet '../../modules/networking/vnet.bicep' = {
     location: location
     addressPrefixes: vnetAddressPrefixes
     subnetAddressPrefix: subnetAddressPrefix
+    vnetName: 'vnet-companyA' // Only if your vnet.bicep supports vnetName param
   }
 }
 
@@ -21,17 +22,16 @@ module nsg '../../modules/networking/nsg.bicep' = {
   params: {
     location: location
     nsgName: 'companyA-nsg'
-    customRules: [] // Optional, remove or fill as needed
+    customRules: []
   }
 }
 
 module peering '../../modules/networking/peering.bicep' = {
   name: 'peeringDeployment'
   params: {
-    location: location
-    vnetName: vnet.name // or pass vnet.outputs.vnetName if your module requires the name
-    vnetResourceGroup: 'rg-company-a' // replace with your actual RG name
-    peerVnetId: '<hubVnet resource id>'
+    vnetName: vnet.outputs.vnetName
+    vnetResourceGroup: 'rg-company-a' // or: resourceGroup().name
+    peerVnetId: '<hubVnet resource id>' // Replace with your actual Hub VNet resource ID
   }
 }
 
@@ -39,7 +39,7 @@ module storage '../../modules/storage/storage.bicep' = {
   name: 'storageDeployment'
   params: {
     location: location
-    storageAccountName: 'companyastorage' // replace with a valid name if needed
+    storageAccountName: 'companyastorage'
   }
 }
 
@@ -56,7 +56,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
       '10.0.10.4'
     ]
     storageAccountId: storage.outputs.storageAccountId
-    // Add additional params for domain join (domain, OU, etc)
+    // Add domain join params if required (domain, OU, etc)
   }
 }
 
