@@ -14,7 +14,7 @@ param keyVaultResourceId string
 param adminPasswordSecretName string = 'CompanyBAdminPassword'
 
 // Securely fetch the VM admin password from Key Vault at deployment time
-var adminPassword = reference(keyVaultResourceId, '2018-02-14').secrets[adminPasswordSecretName]
+var adminPassword = listSecret('${keyVaultResourceId}/secrets/${adminPasswordSecretName}', '2019-09-01').value
 
 // Deploy VNet
 module vnet '../../modules/networking/vnet.bicep' = {
