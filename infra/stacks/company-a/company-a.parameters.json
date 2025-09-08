@@ -26,6 +26,9 @@
       "value": [
         "10.1.0.0/16"
       ]
+    },
+    "sessionHostPrefix": {
+      "value": "cmpA-avd"
     }
   }
 }
