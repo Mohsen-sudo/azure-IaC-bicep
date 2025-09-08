@@ -10,7 +10,7 @@ variables:
   location: "northeurope"
   keyVaultName: "sharedServicesKV25momo"
   wifServiceConnection: "WIF-HubSpokes-Root"
-  dnsAdminUser: "dnsadmin" # Set your preferred admin username
+  dnsAdminUser: "dnsadmin"
 
 stages:
 
@@ -25,16 +25,7 @@ stages:
     pool:
       name: 'IaC-agent-pool'
     steps:
-    # Fetch DNS VM password from Key Vault
-    - task: AzureKeyVault@2
-      displayName: 'Fetch DNSForwarderAdminPassword from Key Vault'
-      inputs:
-        azureSubscription: '$(wifServiceConnection)'
-        KeyVaultName: '$(keyVaultName)'
-        SecretsFilter: 'DNSForwarderAdminPassword'
-        RunAsPreJob: true
-
-    # Deploy Hub/Shared Services
+    # Directly deploy using parameters file referencing Key Vault secret
     - task: AzureCLI@2
       displayName: 'Deploy Shared Services Bicep'
       inputs:
@@ -47,7 +38,7 @@ stages:
           $output = az deployment group create `
             --resource-group rg-shared-services `
             --template-file infra/stacks/shared-services/main.bicep `
-            --parameters location=$(location) adminUsername=$(dnsAdminUser) adminPassword="$(DNSForwarderAdminPassword)" `
+            --parameters "@infra/stacks/shared-services/main.json" `
             --output json
           Write-Host "Shared Services Deployment Output: $output"
           # Parse the output to get the DNS VM private IP for downstream stages
@@ -98,7 +89,7 @@ stages:
     variables:
       dnsServerIp: $[stageDependencies.SharedServices.DeploySharedServices.outputs['dnsServerIp']]
     steps:
-    # Fetch secrets from Hub Key Vault
+    # Fetch secrets from Hub Key Vault if you need to use as pipeline variables
     - task: AzureKeyVault@2
       displayName: 'Fetch CompanyBAdminPassword from Key Vault'
       inputs:
