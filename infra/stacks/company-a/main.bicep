@@ -8,9 +8,6 @@ param adminPassword string
 @description('Azure location for all resources')
 param location string
 
-@description('DNS forwarder IP from shared hub (for dhcpOptions)')
-param dnsServerIp string
-
 @description('Virtual Network address prefixes for Company A')
 param vnetAddressPrefixes array
 
@@ -39,7 +36,7 @@ module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
   }
 }
 
-// Deploy Company A VNet, attach NAT Gateway to subnet, set DNS to use forwarder
+// Deploy Company A VNet, attach NAT Gateway to subnet, set DNS to use AADDS
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
   params: {
@@ -48,7 +45,11 @@ module vnet '../../modules/networking/vnet.bicep' = {
     subnetAddressPrefix: subnetAddressPrefix
     vnetName: 'vnet-companyA'
     natGatewayId: natGateway.outputs.natGatewayId
-    dnsServerIp: dnsServerIp // <-- pass DNS forwarder IP!
+    dnsServers: [
+      '10.0.10.4'
+      '10.0.10.5'
+      '168.63.129.16'
+    ]
   }
 }
 
@@ -90,7 +91,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
-      '10.0.10.5' // Domain DNS for join
+      '10.0.10.5'
       '10.0.10.4'
     ]
     storageAccountId: storage.outputs.storageAccountId
