@@ -4,6 +4,12 @@
   "parameters": {
     "location": {
       "value": "northeurope"
+    },
+    "adminUsername": {
+      "value": "dnsadmin"
+    },
+    "adminPassword": {
+      "value": "YourStrongPassword123!"
     }
   }
 }
