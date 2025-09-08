@@ -20,6 +20,12 @@ param maxSessionHosts int
 @description('Short prefix for AVD session hosts computer name (max 7 chars recommended)')
 param sessionHostPrefix string = 'cmpA-avd' // This will be used as computerName root
 
+@description('Name of the NAT Gateway resource for Company A')
+param natGatewayName string = 'companyA-natgw'
+
+@description('Name of the Public IP for NAT Gateway')
+param publicIpName string = 'companyA-natgw-pip'
+
 // Deploy Company A VNet
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
@@ -38,8 +44,8 @@ module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
     vnetName: vnet.outputs.vnetName
     subnetName: vnet.outputs.subnetName
     location: location
-    natGatewayName: 'companyA-natgw'
-    publicIpName: 'companyA-natgw-pip'
+    natGatewayName: natGatewayName
+    publicIpName: publicIpName
   }
 }
 
@@ -81,12 +87,12 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
-      '10.0.10.5' // AAD DS DNS IP 1
-      '10.0.10.4' // AAD DS DNS IP 2
+      '10.0.10.5'
+      '10.0.10.4'
     ]
     storageAccountId: storage.outputs.storageAccountId
     domainName: 'corp.mohsenlab.local'
-    sessionHostPrefix: sessionHostPrefix // Pass the short prefix!
+    sessionHostPrefix: sessionHostPrefix
   }
 }
 
