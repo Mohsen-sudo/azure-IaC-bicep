@@ -1,18 +1,33 @@
-@description('Location')
-param location string
-@description('Session Host VM name')
 param vmName string
-@description('Host pool ID')
-param hostPoolId string
+param location string
 
-resource sessionHost 'Microsoft.DesktopVirtualization/sessionHosts@2021-07-12' = {
+resource vm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
   name: vmName
   location: location
   properties: {
-    hostPoolArmPath: hostPoolId
-    friendlyName: vmName
-    sessionHostType: 'Personal'
+    // ... your VM properties ...
   }
 }
 
-output sessionHostId string = sessionHost.id
+// Install FSLogix using Custom Script Extension
+resource fslogixInstall 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
+  name: '${vm.name}/FSLogixInstall'
+  location: location
+  properties: {
+    publisher: 'Microsoft.Compute'
+    type: 'CustomScriptExtension'
+    typeHandlerVersion: '1.10'
+    autoUpgradeMinorVersion: true
+    settings: {
+      fileUris: [
+        'https://companyastorage.blob.core.windows.net/fxlogixsetup/Install-FSLogix.ps1?sp=r&st=2025-09-08T17:53:16Z&se=2025-09-09T02:08:16Z&spr=https&sv=2024-11-04&sr=b&sig=u2Wh8UweSswDfS0cs703jXjvbYqPhWGZUhl1dn5b9Ds%3D'
+        'https://companyastorage.blob.core.windows.net/fxlogixsetup/FSLogixAppsSetup.exe?sp=r&st=2025-09-08T17:52:53Z&se=2025-09-09T02:07:53Z&spr=https&sv=2024-11-04&sr=b&sig=%2BYV6TKyvJNnZBdzRLLq1ldgyUBkfOdV4Ma3MOt%2BXt8o%3D'
+        'https://companyastorage.blob.core.windows.net/fxlogixsetup/FSLogixAppsRuleEditorSetup.exe?sp=r&st=2025-09-08T17:50:24Z&se=2025-09-09T02:05:24Z&spr=https&sv=2024-11-04&sr=b&sig=MNyvK5ZNLO6AOBz%2FJYXFx4GqLhNUoy1det%2B5UxZsF%2BE%3D'
+      ]
+      commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File Install-FSLogix.ps1'
+    }
+  }
+  dependsOn: [
+    vm
+  ]
+}
