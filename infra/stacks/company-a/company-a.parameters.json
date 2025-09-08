@@ -16,9 +16,6 @@
     "location": {
       "value": "northeurope"
     },
-    "dnsServerIp": {
-      "value": "<DNS_FORWARDER_PRIVATE_IP>"
-    },
     "maxSessionHosts": {
       "value": 1
     },
