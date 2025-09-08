@@ -18,7 +18,7 @@ param subnetAddressPrefix string
 param maxSessionHosts int
 
 @description('Short prefix for AVD session hosts computer name (max 7 chars recommended)')
-param sessionHostPrefix string = 'cmpA-avd' // This will be used as computerName root
+param sessionHostPrefix string = 'cmpA-avd'
 
 @description('Name of the NAT Gateway resource for Company A')
 param natGatewayName string = 'companyA-natgw'
@@ -26,7 +26,17 @@ param natGatewayName string = 'companyA-natgw'
 @description('Name of the Public IP for NAT Gateway')
 param publicIpName string = 'companyA-natgw-pip'
 
-// Deploy Company A VNet
+// NAT Gateway for outbound internet on AVD subnet (deploy first)
+module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
+  name: 'natGatewayDeployment'
+  params: {
+    location: location
+    natGatewayName: natGatewayName
+    publicIpName: publicIpName
+  }
+}
+
+// Deploy Company A VNet, attach NAT Gateway to subnet
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
   params: {
@@ -34,18 +44,7 @@ module vnet '../../modules/networking/vnet.bicep' = {
     addressPrefixes: vnetAddressPrefixes
     subnetAddressPrefix: subnetAddressPrefix
     vnetName: 'vnet-companyA'
-  }
-}
-
-// NAT Gateway for outbound internet on AVD subnet
-module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
-  name: 'natGatewayDeployment'
-  params: {
-    vnetName: vnet.outputs.vnetName
-    subnetName: vnet.outputs.subnetName
-    location: location
-    natGatewayName: natGatewayName
-    publicIpName: publicIpName
+    natGatewayId: natGateway.outputs.natGatewayId // <-- NEW: pass the NAT Gateway id
   }
 }
 
