@@ -15,12 +15,14 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
     addressSpace: {
       addressPrefixes: addressPrefixes
     }
+    dhcpOptions: {
+      dnsServers: dnsServers
+    }
     subnets: [
       {
         name: 'subnet-avd'
         properties: union({
           addressPrefix: subnetAddressPrefix
-          dnsServers: dnsServers
         }, !empty(natGatewayId) ? {
           natGateway: {
             id: natGatewayId
