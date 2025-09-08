@@ -41,9 +41,8 @@ param vmImageVersion string = 'latest'
 @description('Storage account ID for FSLogix profile container')
 param storageAccountId string
 
-// --- FIX: Use a short session host computer name ---
-var sessionHostPrefix = 'cmpA-avd' // <= 7 chars is safe
-// So final computer name is: cmpA-avd-0 (11 chars max)
+@description('Short prefix for AVD session hosts computer name (max 7 chars recommended)')
+param sessionHostPrefix string = 'cmpA-avd' // <--- FIX ADDED
 
 resource hostPool 'Microsoft.DesktopVirtualization/hostPools@2024-09-01-privatepreview' = {
   name: '${companyPrefix}-hostpool'
