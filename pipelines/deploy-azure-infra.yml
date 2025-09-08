@@ -9,7 +9,8 @@ variables:
   spoke2Subscription: "Azure Sub-B"
   location: "northeurope"
   keyVaultName: "sharedServicesKV25momo"
-  wifServiceConnection: "WIF-HubSpokes-Root"  # FIXED: Name matches your service connection
+  wifServiceConnection: "WIF-HubSpokes-Root"
+  dnsAdminUser: "dnsadmin" # Set your preferred admin username
 
 stages:
 
@@ -24,6 +25,16 @@ stages:
     pool:
       name: 'IaC-agent-pool'
     steps:
+    # Fetch DNS VM password from Key Vault
+    - task: AzureKeyVault@2
+      displayName: 'Fetch DNSForwarderAdminPassword from Key Vault'
+      inputs:
+        azureSubscription: '$(wifServiceConnection)'
+        KeyVaultName: '$(keyVaultName)'
+        SecretsFilter: 'DNSForwarderAdminPassword'
+        RunAsPreJob: true
+
+    # Deploy Hub/Shared Services
     - task: AzureCLI@2
       displayName: 'Deploy Shared Services Bicep'
       inputs:
@@ -36,9 +47,12 @@ stages:
           $output = az deployment group create `
             --resource-group rg-shared-services `
             --template-file infra/stacks/shared-services/main.bicep `
-            --parameters "@infra/stacks/shared-services/main.json" `
+            --parameters location=$(location) adminUsername=$(dnsAdminUser) adminPassword="$(DNSForwarderAdminPassword)" `
             --output json
           Write-Host "Shared Services Deployment Output: $output"
+          # Parse the output to get the DNS VM private IP for downstream stages
+          $dnsServerIp = ($output | ConvertFrom-Json).properties.outputs.dnsVmPrivateIp.value
+          Write-Host "##vso[task.setvariable variable=dnsServerIp;isOutput=true]$dnsServerIp"
 
 # ==============================
 # Stage 2: Deploy Spoke 1 / Company A
@@ -51,6 +65,8 @@ stages:
     displayName: 'Deploy Company A Resources'
     pool:
       name: 'IaC-agent-pool'
+    variables:
+      dnsServerIp: $[stageDependencies.SharedServices.DeploySharedServices.outputs['dnsServerIp']]
     steps:
     - task: AzureCLI@2
       displayName: 'Deploy Company A Bicep'
@@ -64,7 +80,7 @@ stages:
           $output = az deployment group create `
             --resource-group rg-company-a `
             --template-file infra/stacks/company-a/main.bicep `
-            --parameters "@infra/stacks/company-a/company-a.parameters.json" `
+            --parameters "@infra/stacks/company-a/company-a.parameters.json" dnsServerIp="$(dnsServerIp)" `
             --output json
           Write-Host "Company A Deployment Output: $output"
 
@@ -79,6 +95,8 @@ stages:
     displayName: 'Deploy Company B Resources'
     pool:
       name: 'IaC-agent-pool'
+    variables:
+      dnsServerIp: $[stageDependencies.SharedServices.DeploySharedServices.outputs['dnsServerIp']]
     steps:
     # Fetch secrets from Hub Key Vault
     - task: AzureKeyVault@2
@@ -102,6 +120,6 @@ stages:
           $output = az deployment group create `
             --resource-group rg-company-b `
             --template-file infra/stacks/company-b/main.bicep `
-            --parameters "@infra/stacks/company-b/company-b.parameters.json" `
+            --parameters "@infra/stacks/company-b/company-b.parameters.json" dnsServerIp="$(dnsServerIp)" `
             --output json
           Write-Host "Company B Deployment Output: $output"
