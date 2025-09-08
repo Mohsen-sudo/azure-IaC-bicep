@@ -4,6 +4,7 @@ param subnetAddressPrefix string
 param vnetName string = 'vnet-companyA'
 param natGatewayId string = ''
 param dnsServers array = [
+  '10.0.10.4'
   '10.0.10.5'
   '168.63.129.16'
 ]
