@@ -17,6 +17,9 @@ param subnetAddressPrefix string
 @description('Maximum number of AVD session hosts')
 param maxSessionHosts int
 
+@description('Short prefix for AVD session hosts computer name (max 7 chars recommended)')
+param sessionHostPrefix string = 'cmpA-avd' // This will be used as computerName root
+
 // Deploy Company A VNet
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
@@ -71,6 +74,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
     ]
     storageAccountId: storage.outputs.storageAccountId
     domainName: 'corp.mohsenlab.local'
+    sessionHostPrefix: sessionHostPrefix // Pass the short prefix!
   }
 }
 
