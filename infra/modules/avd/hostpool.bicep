@@ -41,6 +41,10 @@ param vmImageVersion string = 'latest'
 @description('Storage account ID for FSLogix profile container')
 param storageAccountId string
 
+// --- FIX: Use a short session host computer name ---
+var sessionHostPrefix = 'cmpA-avd' // <= 7 chars is safe
+// So final computer name is: cmpA-avd-0 (11 chars max)
+
 resource hostPool 'Microsoft.DesktopVirtualization/hostPools@2024-09-01-privatepreview' = {
   name: '${companyPrefix}-hostpool'
   location: location
@@ -76,14 +80,15 @@ resource sessionHostNICs 'Microsoft.Network/networkInterfaces@2023-05-01' = [for
 }]
 
 resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i in range(0, maxSessionHosts): {
-  name: '${companyPrefix}-avd-host-${i}'
+  name: '${companyPrefix}-avd-host-${i}' // VM resource name can be long
   location: location
   properties: {
     hardwareProfile: {
       vmSize: vmSize
     }
     osProfile: {
-      computerName: '${companyPrefix}-avd-host-${i}'
+      // --- FIXED: computerName is always <= 15 chars ---
+      computerName: '${sessionHostPrefix}-${i}' // e.g. cmpA-avd-0
       adminUsername: adminUsername
       adminPassword: adminPassword
       windowsConfiguration: {
