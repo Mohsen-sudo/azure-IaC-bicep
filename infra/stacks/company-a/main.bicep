@@ -31,6 +31,18 @@ module vnet '../../modules/networking/vnet.bicep' = {
   }
 }
 
+// NAT Gateway for outbound internet on AVD subnet
+module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
+  name: 'natGatewayDeployment'
+  params: {
+    vnetName: vnet.outputs.vnetName
+    subnetName: vnet.outputs.subnetName
+    location: location
+    natGatewayName: 'companyA-natgw'
+    publicIpName: 'companyA-natgw-pip'
+  }
+}
+
 // Deploy NSG for Company A
 module nsg '../../modules/networking/nsg.bicep' = {
   name: 'nsgDeployment'
