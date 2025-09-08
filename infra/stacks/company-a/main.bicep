@@ -1,11 +1,10 @@
 param adminUsername string
+@secure()
+param adminPassword string
 param location string
 param vnetAddressPrefixes array
 param subnetAddressPrefix string
 param maxSessionHosts int
-param adminPassword string // <-- Accept from parameter file Key Vault reference
-
-// Add other parameters as needed
 
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
@@ -48,7 +47,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
   params: {
     location: location
     adminUsername: adminUsername
-    adminPassword: adminPassword // <-- Use the parameter value
+    adminPassword: adminPassword
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
     dnsServers: [
@@ -56,7 +55,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
       '10.0.10.4'
     ]
     storageAccountId: storage.outputs.storageAccountId
-    // Add other parameters as needed
+    domainName: 'corp.mohsenlab.local'
   }
 }
 
