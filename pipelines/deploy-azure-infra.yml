@@ -9,7 +9,7 @@ variables:
   spoke2Subscription: "Azure Sub-B"
   location: "northeurope"
   keyVaultName: "sharedServicesKV25momo"
-  wifServiceConnection: "HubSpokes-WIF-Root"
+  wifServiceConnection: "WIF-HubSpokes-Root"  # FIXED: Name matches your service connection
 
 stages:
 
