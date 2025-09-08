@@ -29,6 +29,12 @@
     },
     "sessionHostPrefix": {
       "value": "cmpA-avd"
+    },
+    "natGatewayName": {
+      "value": "companyA-natgw"
+    },
+    "publicIpName": {
+      "value": "companyA-natgw-pip"
     }
   }
 }
