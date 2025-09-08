@@ -11,8 +11,10 @@ param adminPassword string
 @description('Company prefix for naming resources')
 param companyPrefix string = 'companyA'
 
-@description('Number of session hosts to deploy')
-param maxSessionHosts int
+@minValue(1)
+@maxValue(5) // 5 hosts max, each Standard_D2s_v3 (2 vCPU), max 10 vCPUs
+@description('Number of session hosts to deploy. With Standard_D2s_v3, do not set above 5 for a 10 vCPU quota.')
+param maxSessionHosts int = 2
 
 @description('Subnet ID where session hosts will be deployed')
 param subnetId string
@@ -23,7 +25,11 @@ param dnsServers array = []
 @description('Domain name for joining the session hosts')
 param domainName string = 'corp.mohsenlab.local'
 
-@description('VM size for session hosts')
+@allowed([
+  'Standard_D2s_v3'
+  'Standard_B2ms'
+])
+@description('VM size for session hosts. Default is Standard_D2s_v3 (2 vCPU).')
 param vmSize string = 'Standard_D2s_v3'
 
 @description('Windows image for session hosts')
@@ -35,7 +41,6 @@ param vmImageVersion string = 'latest'
 @description('Storage account ID for FSLogix profile container')
 param storageAccountId string
 
-// Deploy the AVD host pool
 resource hostPool 'Microsoft.DesktopVirtualization/hostPools@2024-09-01-privatepreview' = {
   name: '${companyPrefix}-hostpool'
   location: location
@@ -50,7 +55,6 @@ resource hostPool 'Microsoft.DesktopVirtualization/hostPools@2024-09-01-privatep
   }
 }
 
-// Deploy NICs for each session host
 resource sessionHostNICs 'Microsoft.Network/networkInterfaces@2023-05-01' = [for i in range(0, maxSessionHosts): {
   name: '${companyPrefix}-avd-nic-${i}'
   location: location
@@ -71,7 +75,6 @@ resource sessionHostNICs 'Microsoft.Network/networkInterfaces@2023-05-01' = [for
   }
 }]
 
-// Deploy session host VMs
 resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i in range(0, maxSessionHosts): {
   name: '${companyPrefix}-avd-host-${i}'
   location: location
@@ -87,7 +90,6 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
         enableAutomaticUpdates: true
         provisionVMAgent: true
       }
-      // Domain join via CustomScriptExtension
       customData: base64('''
       $secPassword = ConvertTo-SecureString '${adminPassword}' -AsPlainText -Force
       $cred = New-Object System.Management.Automation.PSCredential('${adminUsername}', $secPassword)
@@ -124,7 +126,6 @@ resource sessionHostVMs 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i 
   ]
 }]
 
-// Install FSLogix profile container
 resource fslogixExtensions 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = [for i in range(0, maxSessionHosts): {
   name: '${sessionHostVMs[i].name}/FSLogixProfile'
   location: location
@@ -145,7 +146,6 @@ resource fslogixExtensions 'Microsoft.Compute/virtualMachines/extensions@2023-03
   ]
 }]
 
-// Outputs
 output hostPoolId string = hostPool.id
 output sessionHostVMNames array = [for i in range(0, maxSessionHosts): '${companyPrefix}-avd-host-${i}']
 output sessionHostNICNames array = [for i in range(0, maxSessionHosts): '${companyPrefix}-avd-nic-${i}']
