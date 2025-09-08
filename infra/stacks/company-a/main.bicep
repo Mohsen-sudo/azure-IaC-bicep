@@ -47,8 +47,8 @@ module vnet '../../modules/networking/vnet.bicep' = {
     natGatewayId: natGateway.outputs.natGatewayId
     dnsServers: [
       '10.0.10.4'
-      '10.0.10.5'
       '168.63.129.16'
+
     ]
   }
 }
