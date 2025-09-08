@@ -1,8 +1,12 @@
 param location string
 param addressPrefixes array
 param subnetAddressPrefix string
-param vnetName string = 'vnet-companyA' // Default; override for Company B in main.bicep
-param natGatewayId string = '' // <-- NEW: Optional NAT Gateway id for outbound connectivity
+param vnetName string = 'vnet-companyA'
+param natGatewayId string = ''
+param dnsServers array = [
+  '10.0.10.5'
+  '168.63.129.16'
+]
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: vnetName
@@ -16,6 +20,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
         name: 'subnet-avd'
         properties: union({
           addressPrefix: subnetAddressPrefix
+          dnsServers: dnsServers
         }, !empty(natGatewayId) ? {
           natGateway: {
             id: natGatewayId
