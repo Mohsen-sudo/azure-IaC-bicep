@@ -8,8 +8,13 @@
     "addsVmAdminUsername": {
       "value": "dcadmin"
     },
-    "keyVaultId": {
-      "value": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.KeyVault/vaults/sharedServicesKV-Mohsen"
+    "adminPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.KeyVault/vaults/sharedServicesKV-Mohsen"
+        },
+        "secretName": "addsVmAdminPassword"
+      }
     },
     "addsSubnetAId": {
       "value": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.Network/virtualNetworks/hubVnet/subnets/ADDSSubnetA"
