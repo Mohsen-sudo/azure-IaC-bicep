@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "northeurope"
+    },
+    "addsVmAdminUsername": {
+      "value": "your-admin-username"
+    },
+    "keyVaultId": {
+      "value": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.KeyVault/vaults/sharedServicesKV-Mohsen"
+    },
+    "addsSubnetAId": {
+      "value": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.Network/virtualNetworks/hubVnet/subnets/ADDSSubnetA"
+    },
+    "addsSubnetBId": {
+      "value": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.Network/virtualNetworks/hubVnet/subnets/ADDSSubnetB"
+    }
+  }
+}
