@@ -40,8 +40,12 @@ stages:
             --parameters "@infra/stacks/shared-services/main.json" `
             --output json
           Write-Host "Shared Services Deployment Output: $output"
-          $dnsServerIp = ($output | ConvertFrom-Json).properties.outputs.dnsVmPrivateIp.value
-          Write-Host "##vso[task.setvariable variable=dnsServerIp;isOutput=true]$dnsServerIp"
+          $addsSubnetAId = ($output | ConvertFrom-Json).properties.outputs.addsSubnetAId.value
+          $addsSubnetBId = ($output | ConvertFrom-Json).properties.outputs.addsSubnetBId.value
+          $keyVaultId = ($output | ConvertFrom-Json).properties.outputs.keyVaultId.value
+          Write-Host "##vso[task.setvariable variable=addsSubnetAId;isOutput=true]$addsSubnetAId"
+          Write-Host "##vso[task.setvariable variable=addsSubnetBId;isOutput=true]$addsSubnetBId"
+          Write-Host "##vso[task.setvariable variable=keyVaultId;isOutput=true]$keyVaultId"
 
 # ==============================
 # Stage 1.5: Manual Approval
@@ -52,20 +56,54 @@ stages:
   jobs:
   - job: WaitForApproval
     displayName: 'Wait for Manual Approval'
-    pool: server   # <-- This is REQUIRED for ManualValidation!
+    pool: server
     steps:
     - task: ManualValidation@0
       inputs:
         notifyUsers: 'boxclean@gmail.com'
         instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
-        timeout: '0' # 0 means wait indefinitely
+        timeout: '0'
 
 # ==============================
-# Stage 2: Deploy Spoke 1 / Company A
+# Stage 2: Deploy AD DS VMs to Hub
+# ==============================
+- stage: DeployADDS
+  displayName: 'Deploy AD DS VMs to Hub'
+  dependsOn: ManualApproval
+  jobs:
+  - job: DeployADDSVMs
+    displayName: 'Deploy Domain Controller VMs'
+    pool:
+      name: 'IaC-agent-pool'
+    variables:
+      addsSubnetAId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['addsSubnetAId']]
+      addsSubnetBId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['addsSubnetBId']]
+      keyVaultId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['keyVaultId']]
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Deploy AD DS VMs Bicep'
+      inputs:
+        azureSubscription: '$(wifServiceConnection)'
+        scriptType: 'ps'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az account set --subscription "$(hubSubscription)"
+          $addsVmAdminUsername = "$(dnsAdminUser)"
+          az deployment group create `
+            --resource-group rg-shared-services `
+            --template-file infra/stacks/shared-services/adds-vms.bicep `
+            --parameters location="$(location)" `
+                         addsVmAdminUsername="$addsVmAdminUsername" `
+                         keyVaultId="$(keyVaultId)" `
+                         addsSubnetAId="$(addsSubnetAId)" `
+                         addsSubnetBId="$(addsSubnetBId)"
+
+# ==============================
+# Stage 3: Deploy Spoke 1 / Company A
 # ==============================
 - stage: CompanyA
   displayName: 'Deploy Company A (Spoke 1)'
-  dependsOn: ManualApproval
+  dependsOn: DeployADDS
   jobs:
   - job: DeployCompanyA
     displayName: 'Deploy Company A Resources'
@@ -91,11 +129,11 @@ stages:
           Write-Host "Company A Deployment Output: $output"
 
 # ==============================
-# Stage 3: Deploy Spoke 2 / Company B
+# Stage 4: Deploy Spoke 2 / Company B
 # ==============================
 - stage: CompanyB
   displayName: 'Deploy Company B (Spoke 2)'
-  dependsOn: ManualApproval
+  dependsOn: DeployADDS
   jobs:
   - job: DeployCompanyB
     displayName: 'Deploy Company B Resources'
