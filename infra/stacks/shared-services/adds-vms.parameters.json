@@ -11,16 +11,16 @@
     "adminPassword": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.KeyVault/vaults/sharedServicesKV-Mohsen"
+          "id": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV-Mohsen"
         },
         "secretName": "addsVmAdminPassword"
       }
     },
     "addsSubnetAId": {
-      "value": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.Network/virtualNetworks/hubVnet/subnets/ADDSSubnetA"
+      "value": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet/subnets/ADDSSubnetA"
     },
     "addsSubnetBId": {
-      "value": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.Network/virtualNetworks/hubVnet/subnets/ADDSSubnetB"
+      "value": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet/subnets/ADDSSubnetB"
     }
   }
 }
