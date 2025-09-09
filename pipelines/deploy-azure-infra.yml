@@ -39,10 +39,16 @@ stages:
             --template-file infra/stacks/shared-services/main.bicep `
             --parameters "@infra/stacks/shared-services/main.json" `
             --output json
-          Write-Host "Shared Services Deployment Output: $output"
-          $addsSubnetAId = ($output | ConvertFrom-Json).properties.outputs.addsSubnetAId.value
-          $addsSubnetBId = ($output | ConvertFrom-Json).properties.outputs.addsSubnetBId.value
-          $keyVaultId = ($output | ConvertFrom-Json).properties.outputs.keyVaultId.value
+
+          # Only parse the JSON part in case of extra lines
+          $jsonStart = $output.IndexOf('{')
+          $json = $output.Substring($jsonStart)
+          $jsonObj = $json | ConvertFrom-Json
+
+          $addsSubnetAId = $jsonObj.properties.outputs.addsSubnetAId.value
+          $addsSubnetBId = $jsonObj.properties.outputs.addsSubnetBId.value
+          $keyVaultId    = $jsonObj.properties.outputs.keyVaultId.value
+
           Write-Host "##vso[task.setvariable variable=addsSubnetAId;isOutput=true]$addsSubnetAId"
           Write-Host "##vso[task.setvariable variable=addsSubnetBId;isOutput=true]$addsSubnetBId"
           Write-Host "##vso[task.setvariable variable=keyVaultId;isOutput=true]$keyVaultId"
