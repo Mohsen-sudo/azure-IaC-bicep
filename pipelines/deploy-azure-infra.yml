@@ -44,11 +44,27 @@ stages:
           Write-Host "##vso[task.setvariable variable=dnsServerIp;isOutput=true]$dnsServerIp"
 
 # ==============================
+# Stage 1.5: Manual Approval
+# ==============================
+- stage: ManualApproval
+  displayName: 'Manual Approval Before Spokes'
+  dependsOn: SharedServices
+  jobs:
+  - job: WaitForApproval
+    displayName: 'Wait for Manual Approval'
+    steps:
+    - task: ManualValidation@0
+      inputs:
+        notifyUsers: 'boxclean@gmail.com'
+        instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
+        timeout: '0' # 0 means wait indefinitely
+
+# ==============================
 # Stage 2: Deploy Spoke 1 / Company A
 # ==============================
 - stage: CompanyA
   displayName: 'Deploy Company A (Spoke 1)'
-  dependsOn: SharedServices
+  dependsOn: ManualApproval
   jobs:
   - job: DeployCompanyA
     displayName: 'Deploy Company A Resources'
@@ -78,7 +94,7 @@ stages:
 # ==============================
 - stage: CompanyB
   displayName: 'Deploy Company B (Spoke 2)'
-  dependsOn: SharedServices
+  dependsOn: ManualApproval
   jobs:
   - job: DeployCompanyB
     displayName: 'Deploy Company B Resources'
