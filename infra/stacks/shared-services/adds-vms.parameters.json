@@ -6,7 +6,7 @@
       "value": "northeurope"
     },
     "addsVmAdminUsername": {
-      "value": "your-admin-username"
+      "value": "dcadmin"
     },
     "keyVaultId": {
       "value": "/subscriptions/<your-subscription-id>/resourceGroups/<your-rg-name>/providers/Microsoft.KeyVault/vaults/sharedServicesKV-Mohsen"
