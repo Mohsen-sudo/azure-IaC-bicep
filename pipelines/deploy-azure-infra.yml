@@ -52,6 +52,7 @@ stages:
   jobs:
   - job: WaitForApproval
     displayName: 'Wait for Manual Approval'
+    pool: server   # <-- This is REQUIRED for ManualValidation!
     steps:
     - task: ManualValidation@0
       inputs:
