@@ -85,6 +85,24 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   }
 }
 
+// Symbolic subnet resources for robust outputs
+resource hubSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' existing = {
+  parent: hubVnet
+  name: 'hubSubnet'
+}
+resource gatewaySubnet 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' existing = {
+  parent: hubVnet
+  name: 'GatewaySubnet'
+}
+resource addsSubnetA 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' existing = {
+  parent: hubVnet
+  name: 'ADDSSubnetA'
+}
+resource addsSubnetB 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' existing = {
+  parent: hubVnet
+  name: 'ADDSSubnetB'
+}
+
 resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: 'sharedServicesKV-Mohsen'
   location: location
@@ -99,7 +117,6 @@ resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-// Public IP for VPN Gateway
 resource vpnGwPublicIP 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
   name: 'hubVpnGatewayPIP'
   location: location
@@ -111,7 +128,6 @@ resource vpnGwPublicIP 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
   }
 }
 
-// VPN Gateway
 resource vpnGateway 'Microsoft.Network/virtualNetworkGateways@2023-09-01' = {
   name: 'hubVpnGateway'
   location: location
@@ -124,7 +140,7 @@ resource vpnGateway 'Microsoft.Network/virtualNetworkGateways@2023-09-01' = {
             id: vpnGwPublicIP.id
           }
           subnet: {
-            id: hubVnet.properties.subnets[1].id // GatewaySubnet
+            id: gatewaySubnet.id
           }
         }
       }
@@ -139,11 +155,14 @@ resource vpnGateway 'Microsoft.Network/virtualNetworkGateways@2023-09-01' = {
   }
 }
 
+// Outputs for downstream VM deployment and peering
 output vnetId string = hubVnet.id
-output hubSubnetId string = hubVnet.properties.subnets[0].id
-output gatewaySubnetId string = hubVnet.properties.subnets[1].id
-output addsSubnetAId string = hubVnet.properties.subnets[2].id
-output addsSubnetBId string = hubVnet.properties.subnets[3].id
+output hubSubnetId string = hubSubnet.id
+output gatewaySubnetId string = gatewaySubnet.id
+output addsSubnetAId string = addsSubnetA.id
+output addsSubnetBId string = addsSubnetB.id
 output keyVaultId string = hubKeyVault.id
 output vpnGatewayId string = vpnGateway.id
 output vpnGwPublicIPId string = vpnGwPublicIP.id
+
+// NOTE: Deploy Windows Server VMs as domain controllers for .local domains in ADDSSubnetA and ADDSSubnetB separately!
