@@ -4,8 +4,9 @@ param location string
 @description('Admin username for the domain controller VMs')
 param addsVmAdminUsername string
 
-@description('Key Vault resource ID')
-param keyVaultId string
+@description('Admin password for the domain controller VMs')
+@secure()
+param adminPassword string
 
 @description('ADDSSubnetA resource ID')
 param addsSubnetAId string
@@ -13,24 +14,12 @@ param addsSubnetAId string
 @description('ADDSSubnetB resource ID')
 param addsSubnetBId string
 
-var adminPasswordSecretName = 'addsVmAdminPassword' // Your confirmed secret name
-
 var vmSize = 'Standard_DS2_v2'
 var imageRef = {
   publisher: 'MicrosoftWindowsServer'
   offer: 'WindowsServer'
   sku: '2022-Datacenter'
   version: 'latest'
-}
-
-// Securely reference password from Key Vault
-var adminPasswordRef = {
-  reference: {
-    keyVault: {
-      id: keyVaultId
-    }
-    secretName: adminPasswordSecretName
-  }
 }
 
 // CompanyA Domain Controller VM
@@ -62,7 +51,7 @@ resource addsVmA 'Microsoft.Compute/virtualMachines@2023-07-01' = {
     osProfile: {
       computerName: 'adds-dcA'
       adminUsername: addsVmAdminUsername
-      adminPassword: adminPasswordRef
+      adminPassword: adminPassword
     }
     storageProfile: {
       imageReference: imageRef
@@ -109,7 +98,7 @@ resource addsVmB 'Microsoft.Compute/virtualMachines@2023-07-01' = {
     osProfile: {
       computerName: 'adds-dcB'
       adminUsername: addsVmAdminUsername
-      adminPassword: adminPasswordRef
+      adminPassword: adminPassword
     }
     storageProfile: {
       imageReference: imageRef
