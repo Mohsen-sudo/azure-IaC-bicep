@@ -14,7 +14,7 @@ param addsSubnetAId string
 @description('ADDSSubnetB resource ID')
 param addsSubnetBId string
 
-var vmSize = 'Standard_DS2_v2'
+var vmSize = 'Standard_B1s'
 var imageRef = {
   publisher: 'MicrosoftWindowsServer'
   offer: 'WindowsServer'
