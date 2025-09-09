@@ -94,9 +94,9 @@ stages:
             --template-file infra/stacks/shared-services/adds-vms.bicep `
             --parameters location="$(location)" `
                          addsVmAdminUsername="$addsVmAdminUsername" `
-                         keyVaultId="$(keyVaultId)" `
                          addsSubnetAId="$(addsSubnetAId)" `
-                         addsSubnetBId="$(addsSubnetBId)"
+                         addsSubnetBId="$(addsSubnetBId)" `
+                         adminPassword='{"reference":{"keyVault":{"id":"$(keyVaultId)"},"secretName":"addsVmAdminPassword"}}'
 
 # ==============================
 # Stage 3: Deploy Spoke 1 / Company A
