@@ -26,6 +26,12 @@ param natGatewayName string = 'companyA-natgw'
 @description('Name of the Public IP for NAT Gateway')
 param publicIpName string = 'companyA-natgw-pip'
 
+// AADDS DNS IPs - update these if your AADDS IPs change!
+var aaddsDnsIps = [
+  '10.0.10.4'
+  '10.0.10.5'
+]
+
 // NAT Gateway for outbound internet on AVD subnet (deploy first)
 module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
   name: 'natGatewayDeployment'
@@ -45,19 +51,18 @@ module vnet '../../modules/networking/vnet.bicep' = {
     subnetAddressPrefix: subnetAddressPrefix
     vnetName: 'vnet-companyA'
     natGatewayId: natGateway.outputs.natGatewayId
-    dnsServers: [
-      '168.63.129.16'
-      '10.0.10.4'
-    ]
+    // Only AADDS DNS for domain join
+    dnsServers: aaddsDnsIps
   }
 }
 
-// Deploy NSG for Company A
+// Deploy NSG for Company A, with secure and complete rules
 module nsg '../../modules/networking/nsg.bicep' = {
   name: 'nsgDeployment'
   params: {
     location: location
     nsgName: 'companyA-nsg'
+    // No custom rules for now, but could add jumpbox/public IP for RDP if needed
     customRules: []
   }
 }
@@ -68,6 +73,8 @@ module peering '../../modules/networking/peering.bicep' = {
   params: {
     vnetName: vnet.outputs.vnetName
     peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet'
+    allowForwardedTraffic: true // Best practice for AVD/hub scenarios
+    allowGatewayTransit: false
   }
 }
 
@@ -89,10 +96,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
     adminPassword: adminPassword
     maxSessionHosts: maxSessionHosts
     subnetId: vnet.outputs.subnetId
-    dnsServers: [
-      '10.0.10.5'
-      '10.0.10.4'
-    ]
+    dnsServers: aaddsDnsIps
     storageAccountId: storage.outputs.storageAccountId
     domainName: 'corp.mohsenlab.local'
     sessionHostPrefix: sessionHostPrefix
