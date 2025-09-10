@@ -82,7 +82,6 @@ module vnet '../../modules/networking/vnet.bicep' = {
     addsSubnetAAddressPrefix: addsSubnetAAddressPrefix
     addsSubnetBAddressPrefix: addsSubnetBAddressPrefix
     avdSubnetAddressPrefix: avdSubnetAddressPrefix
-    // routeTableId not needed unless your vnet.bicep uses it per subnet!
   }
 }
 
