@@ -5,23 +5,37 @@ param location string
 @description('Optional: Array of additional custom security rules')
 param customRules array = []
 
-// Base NSG rules for AVD and ADDS
 var baseSecurityRules = [
+  // DNS (UDP & TCP)
   {
-    name: 'Allow-ADDS-LDAP'
+    name: 'Allow-ADDS-DNS-UDP'
     properties: {
       priority: 100
       direction: 'Outbound'
       access: 'Allow'
-      protocol: 'Tcp'
+      protocol: 'Udp'
       sourcePortRange: '*'
-      destinationPortRange: '389'
+      destinationPortRange: '53'
       sourceAddressPrefix: '*'
       destinationAddressPrefix: 'VirtualNetwork'
     }
   }
   {
-    name: 'Allow-ADDS-Kerberos'
+    name: 'Allow-ADDS-DNS-TCP'
+    properties: {
+      priority: 101
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '53'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  // Kerberos (UDP & TCP)
+  {
+    name: 'Allow-ADDS-Kerberos-TCP'
     properties: {
       priority: 110
       direction: 'Outbound'
@@ -34,22 +48,78 @@ var baseSecurityRules = [
     }
   }
   {
-    name: 'Allow-ADDS-DNS'
+    name: 'Allow-ADDS-Kerberos-UDP'
     properties: {
-      priority: 120
+      priority: 111
       direction: 'Outbound'
       access: 'Allow'
       protocol: 'Udp'
       sourcePortRange: '*'
-      destinationPortRange: '53'
+      destinationPortRange: '88'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  // LDAP and LDAPS
+  {
+    name: 'Allow-ADDS-LDAP'
+    properties: {
+      priority: 120
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '389'
       sourceAddressPrefix: '*'
       destinationAddressPrefix: 'VirtualNetwork'
     }
   }
   {
-    name: 'Allow-ADDS-SMB'
+    name: 'Allow-ADDS-LDAPS'
+    properties: {
+      priority: 121
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '636'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  // RPC Endpoint Mapper
+  {
+    name: 'Allow-ADDS-RPC-EPM'
     properties: {
       priority: 130
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '135'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  // RPC Dynamic Ports
+  {
+    name: 'Allow-ADDS-RPC-Dynamic'
+    properties: {
+      priority: 131
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '49152-65535'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+    }
+  }
+  // SMB
+  {
+    name: 'Allow-ADDS-SMB'
+    properties: {
+      priority: 140
       direction: 'Outbound'
       access: 'Allow'
       protocol: 'Tcp'
@@ -59,59 +129,7 @@ var baseSecurityRules = [
       destinationAddressPrefix: 'VirtualNetwork'
     }
   }
-  {
-    name: 'Allow-RDP-Inbound'
-    properties: {
-      priority: 200
-      direction: 'Inbound'
-      access: 'Allow'
-      protocol: 'Tcp'
-      sourcePortRange: '*'
-      destinationPortRange: '3389'
-      sourceAddressPrefix: 'Internet'
-      destinationAddressPrefix: '*'
-    }
-  }
-  // Split AVD Agent ports into individual rules
-  {
-    name: 'Allow-AVD-Agent-443'
-    properties: {
-      priority: 210
-      direction: 'Outbound'
-      access: 'Allow'
-      protocol: 'Tcp'
-      sourcePortRange: '*'
-      destinationPortRange: '443'
-      sourceAddressPrefix: '*'
-      destinationAddressPrefix: 'Internet'
-    }
-  }
-  {
-    name: 'Allow-AVD-Agent-9354'
-    properties: {
-      priority: 211
-      direction: 'Outbound'
-      access: 'Allow'
-      protocol: 'Tcp'
-      sourcePortRange: '*'
-      destinationPortRange: '9354'
-      sourceAddressPrefix: '*'
-      destinationAddressPrefix: 'Internet'
-    }
-  }
-  {
-    name: 'Allow-AVD-Agent-9350'
-    properties: {
-      priority: 212
-      direction: 'Outbound'
-      access: 'Allow'
-      protocol: 'Tcp'
-      sourcePortRange: '*'
-      destinationPortRange: '9350'
-      sourceAddressPrefix: '*'
-      destinationAddressPrefix: 'Internet'
-    }
-  }
+  // Inbound for AD DS (repeat above for inbound if required, or rely on "Allow-Subnet-Internal")
   {
     name: 'Allow-Subnet-Internal'
     properties: {
@@ -125,6 +143,61 @@ var baseSecurityRules = [
       destinationAddressPrefix: '*'
     }
   }
+  // RDP (Restrict source address in production!)
+  {
+    name: 'Allow-RDP-Inbound'
+    properties: {
+      priority: 400
+      direction: 'Inbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '3389'
+      sourceAddressPrefix: 'Internet' // Replace with your admin IP or range!
+      destinationAddressPrefix: '*'
+    }
+  }
+  // AVD Agent ports (Outbound)
+  {
+    name: 'Allow-AVD-Agent-443'
+    properties: {
+      priority: 410
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '443'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'Internet'
+    }
+  }
+  {
+    name: 'Allow-AVD-Agent-9354'
+    properties: {
+      priority: 411
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '9354'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'Internet'
+    }
+  }
+  {
+    name: 'Allow-AVD-Agent-9350'
+    properties: {
+      priority: 412
+      direction: 'Outbound'
+      access: 'Allow'
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '9350'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'Internet'
+    }
+  }
+  // Deny all catch-all
   {
     name: 'Deny-All-Inbound'
     properties: {
@@ -153,7 +226,6 @@ var baseSecurityRules = [
   }
 ]
 
-// Merge base and custom rules
 var securityRules = concat(baseSecurityRules, customRules)
 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2021-05-01' = {
