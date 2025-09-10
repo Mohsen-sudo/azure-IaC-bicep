@@ -170,17 +170,24 @@ resource vpnGateway 'Microsoft.Network/virtualNetworkGateways@2023-09-01' = {
 }
 
 // =====================
-// Azure AD DS (FIXED API VERSION)
+// Azure AD DS (FIXED: API VERSION & PROPERTIES)
 // =====================
 resource azureADDS 'Microsoft.AAD/domainServices@2022-12-01' = {
   name: 'aadds-mohsen'
   location: location
   properties: {
     domainName: 'contoso.local'       // replace with your on-prem domain
-    subnetId: addsSubnetA.id          // dedicated subnet for Azure AD DS
     sku: 'Standard'
-    enableSecureLDAP: false           // enable later if required
-    enableAzureResourceForest: false
+    replicaSets: [
+      {
+        location: location
+        subnetId: addsSubnetA.id
+      }
+    ]
+    // Example for Secure LDAP (optional):
+    // ldapsSettings: {
+    //   ldaps: 'Disabled'
+    // }
   }
 }
 
