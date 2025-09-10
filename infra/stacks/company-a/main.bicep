@@ -8,16 +8,19 @@ param adminPassword string
 @description('Azure location for all resources')
 param location string
 
-@description('Virtual Network address prefixes for Company A')
-param vnetAddressPrefixes array
+@description('Virtual Network address prefixes for Company A. MUST NOT overlap with hubVnet (e.g., use 10.1.0.0/16)')
+param vnetAddressPrefixes array = [
+  // FIX: Changed to non-overlapping address space
+  '10.1.0.0/16'
+]
 
-@description('Address prefix for AVD subnet')
+@description('Address prefix for AVD subnet. Must be within vnetAddressPrefixes.')
 param avdSubnetAddressPrefix string = '10.1.3.0/24'
 
-@description('Address prefix for addsSubnetA')
+@description('Address prefix for addsSubnetA. Must be within vnetAddressPrefixes.')
 param addsSubnetAAddressPrefix string = '10.1.1.0/24'
 
-@description('Address prefix for addsSubnetB')
+@description('Address prefix for addsSubnetB. Must be within vnetAddressPrefixes.')
 param addsSubnetBAddressPrefix string = '10.1.2.0/24'
 
 @description('Maximum number of AVD session hosts')
