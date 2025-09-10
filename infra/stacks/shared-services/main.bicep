@@ -170,9 +170,9 @@ resource vpnGateway 'Microsoft.Network/virtualNetworkGateways@2023-09-01' = {
 }
 
 // =====================
-// Azure AD DS
+// Azure AD DS (FIXED API VERSION)
 // =====================
-resource azureADDS 'Microsoft.AAD/domainServices@2023-05-01' = {
+resource azureADDS 'Microsoft.AAD/domainServices@2022-12-01' = {
   name: 'aadds-mohsen'
   location: location
   properties: {
