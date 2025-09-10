@@ -4,6 +4,12 @@ param vnetName string
 @description('The resourceId of the remote VNet to peer with')
 param peerVnetId string
 
+@description('Whether to allow forwarded traffic')
+param allowForwardedTraffic bool = true
+
+@description('Whether to allow gateway transit')
+param allowGatewayTransit bool = false
+
 resource localVnet 'Microsoft.Network/virtualNetworks@2021-05-01' existing = {
   name: vnetName
 }
@@ -16,8 +22,8 @@ resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2
       id: peerVnetId
     }
     allowVirtualNetworkAccess: true
-    allowForwardedTraffic: true
-    allowGatewayTransit: false
+    allowForwardedTraffic: allowForwardedTraffic
+    allowGatewayTransit: allowGatewayTransit
     useRemoteGateways: false
   }
 }
