@@ -12,13 +12,13 @@ param location string
 param vnetAddressPrefixes array
 
 @description('Address prefix for AVD subnet')
-param avdSubnetAddressPrefix string = '10.0.3.0/24'
+param avdSubnetAddressPrefix string = '10.1.3.0/24'
 
 @description('Address prefix for addsSubnetA')
-param addsSubnetAAddressPrefix string = '10.0.1.0/24'
+param addsSubnetAAddressPrefix string = '10.1.1.0/24'
 
 @description('Address prefix for addsSubnetB')
-param addsSubnetBAddressPrefix string = '10.0.2.0/24'
+param addsSubnetBAddressPrefix string = '10.1.2.0/24'
 
 @description('Maximum number of AVD session hosts')
 param maxSessionHosts int
