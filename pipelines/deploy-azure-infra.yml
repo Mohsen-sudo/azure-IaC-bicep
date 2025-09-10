@@ -33,27 +33,12 @@ stages:
         scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           az account set --subscription "$(hubSubscription)"
           az group create --name rg-shared-services --location $(location)
-          $output = az deployment group create `
+          az deployment group create `
             --resource-group rg-shared-services `
             --template-file infra/stacks/shared-services/main.bicep `
-            --parameters "@infra/stacks/shared-services/main.json" `
-            --output json
-          if ([string]::IsNullOrEmpty($output) -or $output -like '*ERROR*') {
-            Write-Error "Deployment output is empty or error detected. See deployment errors above."
-            exit 1
-          }
-          $jsonStart = $output.IndexOf('{')
-          $json = $output.Substring($jsonStart)
-          $jsonObj = $json | ConvertFrom-Json
-          $addsSubnetAId = $jsonObj.properties.outputs.addsSubnetAId.value
-          $addsSubnetBId = $jsonObj.properties.outputs.addsSubnetBId.value
-          $keyVaultId    = $jsonObj.properties.outputs.keyVaultId.value
-          Write-Host "##vso[task.setvariable variable=addsSubnetAId;isOutput=true]$addsSubnetAId"
-          Write-Host "##vso[task.setvariable variable=addsSubnetBId;isOutput=true]$addsSubnetBId"
-          Write-Host "##vso[task.setvariable variable=keyVaultId;isOutput=true]$keyVaultId"
+            --parameters "@infra/stacks/shared-services/main.json"
 
 # ==============================
 # Stage 1.5: Manual Approval
@@ -91,14 +76,12 @@ stages:
         scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           az account set --subscription "$(spoke1Subscription)"
           az group create --name rg-company-a --location $(location)
           az deployment group create `
             --resource-group rg-company-a `
             --template-file infra/stacks/company-a/main.bicep `
-            --parameters "@infra/stacks/company-a/company-a.parameters.json" `
-            --output json
+            --parameters "@infra/stacks/company-a/company-a.parameters.json"
 
 # ==============================
 # Stage 3: Deploy Spoke 2 / Company B
@@ -119,11 +102,9 @@ stages:
         scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           az account set --subscription "$(spoke2Subscription)"
           az group create --name rg-company-b --location $(location)
           az deployment group create `
             --resource-group rg-company-b `
             --template-file infra/stacks/company-b/main.bicep `
-            --parameters "@infra/stacks/company-b/company-b.parameters.json" `
-            --output json
+            --parameters "@infra/stacks/company-b/company-b.parameters.json"
