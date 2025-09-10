@@ -1,42 +1,29 @@
-@description('Username for admin access to session hosts')
-param adminUsername string
+@description('Azure region')
+param location string = 'northeurope'
 
-@secure()
-@description('Admin password, securely referenced from Key Vault in your parameter file')
-param adminPassword string
-
-@description('Azure location for all resources')
-param location string
-
-@description('Virtual Network address prefix for Company A. MUST NOT overlap with hubVnet (e.g., use 10.1.0.0/16)')
+@description('CompanyA Spoke VNet address prefix')
 param vnetAddressPrefix string = '10.1.0.0/16'
 
-@description('Address prefix for single subnet (used by DC and AVD hosts)')
+@description('Subnet address prefix for AVD hosts')
 param subnetAddressPrefix string = '10.1.1.0/24'
 
-@description('Maximum number of AVD session hosts in pool 01')
-param maxSessionHostsPool01 int
+@description('Admin username for session hosts')
+param adminUsername string
+@secure()
+@description('Admin password')
+param adminPassword string
 
-@description('Maximum number of AVD session hosts in pool 02')
-param maxSessionHostsPool02 int
+@description('Max session hosts in pool 01')
+param maxSessionHostsPool01 int = 2
 
-@description('Short prefix for AVD session hosts computer name (max 7 chars recommended)')
+@description('Max session hosts in pool 02')
+param maxSessionHostsPool02 int = 2
+
+@description('Short prefix for AVD session host computer name')
 param sessionHostPrefix string = 'cmpA-avd'
 
-@description('Name of the NAT Gateway resource for Company A')
-param natGatewayName string = 'companyA-natgw'
-
-@description('Name of the Public IP for NAT Gateway')
-param publicIpName string = 'companyA-natgw-pip'
-
-@description('Optional: Deploy a custom route table and associate to subnet')
-param deployRouteTable bool = false
-
-@description('Custom routes for the route table (if used)')
-param customRoutes array = []
-
-@description('Deploy FSLogix Private Endpoint and DNS config for Azure Files')
-param deployFslogixPrivateEndpoint bool = true
+@description('Storage account name for FSLogix profiles')
+param storageAccountName string = 'companyastorage'
 
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
@@ -44,142 +31,169 @@ param privateDnsZoneId string = ''
 @description('Hub VNet resource ID for peering')
 param hubVnetId string
 
-// AADDS DNS IPs (update if your AADDS IPs change!)
-var aaddsDnsIps = [
-  '10.0.10.4'
-  '10.0.10.5'
-]
+@description('Optional: Deploy NSG')
+param deployNsg bool = true
 
-// VNet with one subnet
-module vnet '../../modules/networking/vnet-single-subnet.bicep' = {
-  name: 'vnetDeployment'
-  params: {
-    location: location
-    addressPrefix: vnetAddressPrefix
-    subnetAddressPrefix: subnetAddressPrefix
-    vnetName: 'vnet-companyA'
-    natGatewayName: natGatewayName
-    publicIpName: publicIpName
-    dnsServers: aaddsDnsIps
-    routeTableName: deployRouteTable ? 'companyA-rt' : ''
-    customRoutes: customRoutes
-  }
-}
+@description('Optional: Deploy custom route table')
+param deployRouteTable bool = false
 
-// NSG for Company A
-module nsg '../../modules/networking/nsg.bicep' = {
-  name: 'nsgDeployment'
-  params: {
-    location: location
-    nsgName: 'companyA-nsg'
-    subnetIds: [
-      vnet.outputs.subnetId
-    ]
-    customRules: []
-  }
-}
+@description('Custom routes for the route table (if used)')
+param customRoutes array = []
 
-// VNet Peering to shared hubVnet
-resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
-  name: 'peer-to-hub'
-  parent: vnet.outputs.vnetName
+// Create CompanyA spoke VNet with ONE subnet for AVD hosts
+resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
+  name: 'companyA-avd-vnet'
+  location: location
   properties: {
-    remoteVirtualNetwork: {
-      id: hubVnetId
+    addressSpace: {
+      addressPrefixes: [vnetAddressPrefix]
     }
+    subnets: [
+      {
+        name: 'avd-subnet'
+        properties: {
+          addressPrefix: subnetAddressPrefix
+        }
+      }
+    ]
+  }
+}
+
+// Optional: NSG for subnet
+resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = if (deployNsg) {
+  name: 'companyA-avd-nsg'
+  location: location
+  properties: {
+    securityRules: [
+      // Example: allow RDP from trusted IP (customize as needed)
+      {
+        name: 'AllowRDP'
+        properties: {
+          priority: 1000
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '3389'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          direction: 'Inbound'
+        }
+      }
+    ]
+  }
+}
+
+// Associate NSG to subnet
+resource subnetNsgAssoc 'Microsoft.Network/virtualNetworks/subnets/networkSecurityGroups@2023-09-01' = if (deployNsg) {
+  name: 'avd-subnet-nsg-assoc'
+  parent: vnet
+  scope: vnet
+  properties: {
+    networkSecurityGroup: {
+      id: avdNsg.id
+    }
+  }
+  dependsOn: [
+    vnet
+    avdNsg
+  ]
+}
+
+// Optional: Route table for subnet
+resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = if (deployRouteTable) {
+  name: 'companyA-avd-rt'
+  location: location
+  properties: {
+    routes: customRoutes
+  }
+}
+
+// Associate route table to subnet
+resource subnetRtAssoc 'Microsoft.Network/virtualNetworks/subnets/routeTables@2023-09-01' = if (deployRouteTable) {
+  name: 'avd-subnet-rt-assoc'
+  parent: vnet
+  scope: vnet
+  properties: {
+    routeTable: {
+      id: avdRouteTable.id
+    }
+  }
+  dependsOn: [
+    vnet
+    avdRouteTable
+  ]
+}
+
+// Storage Account for FSLogix profiles
+resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: storageAccountName
+  location: location
+  sku: { name: 'Standard_LRS' }
+  kind: 'StorageV2'
+  properties: {}
+}
+
+// Private Endpoint for Azure Files (FSLogix)
+resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (privateDnsZoneId != '') {
+  name: 'companyA-fslogix-pe'
+  location: location
+  properties: {
+    subnet: { id: vnet.properties.subnets[0].id }
+    privateLinkServiceConnections: [
+      {
+        name: 'fslogix-files'
+        properties: {
+          privateLinkServiceId: storage.id
+          groupIds: ['file']
+          privateLinkServiceConnectionState: {
+            status: 'Approved'
+            description: 'Auto-approved'
+            actionsRequired: ''
+          }
+        }
+      }
+    ]
+    customDnsConfigs: [
+      {
+        name: 'privatelink.file.' + environment().suffixes.storage
+        properties: {
+          privateDnsZoneId: privateDnsZoneId
+        }
+      }
+    ]
+  }
+}
+
+// VNet Peering to Hub
+resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
+  name: 'companyA-to-hub-peering'
+  parent: vnet
+  properties: {
+    remoteVirtualNetwork: { id: hubVnetId }
     allowVirtualNetworkAccess: true
     allowForwardedTraffic: true
     allowGatewayTransit: false
   }
 }
 
-// Storage for Company A (used for FSLogix profiles)
-module storage '../../modules/storage/storage.bicep' = {
-  name: 'storageDeployment'
-  params: {
-    location: location
-    storageAccountName: 'companyastorage'
+// Example AVD Host Pool 01 (resource reference, you can replace with your AVD module)
+resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyA-avd-hostpool01'
+  location: location
+  properties: {
+    friendlyName: 'CompanyA-HostPool01'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
   }
 }
 
-// FSLogix Private Endpoint for Azure Files (+ Private DNS Zone group link)
-module fslogixPrivateEndpoint '../../modules/networking/privateEndpoint.bicep' = if (deployFslogixPrivateEndpoint) {
-  name: 'fslogixPrivateEndpointDeployment'
-  params: {
-    privateEndpointName: 'companyA-fslogix-pe'
-    location: location
-    targetResourceId: storage.outputs.storageAccountId
-    subnetId: vnet.outputs.subnetId
-    privateDnsZoneConfigs: [
-      {
-        zoneName: 'privatelink.file.core.windows.net'
-        zoneId: privateDnsZoneId
-      }
-    ]
-    // For Azure Files, set groupIds to ['file'] in privateEndpoint.bicep if required
-  }
-}
-
-// Domain Controller VM (in subnet)
-module dcVm '../../modules/domainController.bicep' = {
-  name: 'companyA-dc'
-  params: {
-    location: location
-    subnetId: vnet.outputs.subnetId
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    domainName: 'CompanyA.local'
-    dnsServers: aaddsDnsIps
-  }
-}
-
-// First AVD host pool in subnet
-module avdHostpool01 '../../modules/avd/hostpool.bicep' = {
-  name: 'companyA-avd-hostpool-01'
-  params: {
-    location: location
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    maxSessionHosts: maxSessionHostsPool01
-    subnetId: vnet.outputs.subnetId
-    dnsServers: aaddsDnsIps
-    storageAccountId: storage.outputs.storageAccountId
-    domainName: 'CompanyA.local'
-    sessionHostPrefix: '${sessionHostPrefix}-01'
-    // Add FSLogix profile path if required as a parameter in your hostpool module
-  }
-}
-
-// Second AVD host pool in subnet
-module avdHostpool02 '../../modules/avd/hostpool.bicep' = {
-  name: 'companyA-avd-hostpool-02'
-  params: {
-    location: location
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    maxSessionHosts: maxSessionHostsPool02
-    subnetId: vnet.outputs.subnetId
-    dnsServers: aaddsDnsIps
-    storageAccountId: storage.outputs.storageAccountId
-    domainName: 'CompanyA.local'
-    sessionHostPrefix: '${sessionHostPrefix}-02'
-    // Add FSLogix profile path if required as a parameter in your hostpool module
-  }
-}
-
-// Workspace for Company A (optional, can be deployed per pool)
-module workspace01 '../../modules/avd/workspace.bicep' = {
-  name: 'workspaceDeployment01'
-  params: {
-    location: location
-    hostPoolId: avdHostpool01.outputs.hostPoolId
-  }
-}
-
-module workspace02 '../../modules/avd/workspace.bicep' = {
-  name: 'workspaceDeployment02'
-  params: {
-    location: location
-    hostPoolId: avdHostpool02.outputs.hostPoolId
+// Example AVD Host Pool 02
+resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyA-avd-hostpool02'
+  location: location
+  properties: {
+    friendlyName: 'CompanyA-HostPool02'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
   }
 }
