@@ -6,7 +6,7 @@
       "value": "CompanyAAdmin"
     },
     "adminPassword": {
-      "value": ""  // will be overridden by pipeline variable
+      "value": "NN12345nn"
     },
     "location": {
       "value": "northeurope"
