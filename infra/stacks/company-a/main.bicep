@@ -8,23 +8,17 @@ param adminPassword string
 @description('Azure location for all resources')
 param location string
 
-@description('Virtual Network address prefixes for Company A. MUST NOT overlap with hubVnet (e.g., use 10.1.0.0/16)')
-param vnetAddressPrefixes array = [
-  // FIX: Changed to non-overlapping address space
-  '10.1.0.0/16'
-]
+@description('Virtual Network address prefix for Company A. MUST NOT overlap with hubVnet (e.g., use 10.1.0.0/16)')
+param vnetAddressPrefix string = '10.1.0.0/16'
 
-@description('Address prefix for AVD subnet. Must be within vnetAddressPrefixes.')
-param avdSubnetAddressPrefix string = '10.1.3.0/24'
+@description('Address prefix for single subnet (used by DC and AVD hosts)')
+param subnetAddressPrefix string = '10.1.1.0/24'
 
-@description('Address prefix for addsSubnetA. Must be within vnetAddressPrefixes.')
-param addsSubnetAAddressPrefix string = '10.1.1.0/24'
+@description('Maximum number of AVD session hosts in pool 01')
+param maxSessionHostsPool01 int
 
-@description('Address prefix for addsSubnetB. Must be within vnetAddressPrefixes.')
-param addsSubnetBAddressPrefix string = '10.1.2.0/24'
-
-@description('Maximum number of AVD session hosts')
-param maxSessionHosts int
+@description('Maximum number of AVD session hosts in pool 02')
+param maxSessionHostsPool02 int
 
 @description('Short prefix for AVD session hosts computer name (max 7 chars recommended)')
 param sessionHostPrefix string = 'cmpA-avd'
@@ -35,7 +29,7 @@ param natGatewayName string = 'companyA-natgw'
 @description('Name of the Public IP for NAT Gateway')
 param publicIpName string = 'companyA-natgw-pip'
 
-@description('Optional: Deploy a custom route table and associate to AVD subnet')
+@description('Optional: Deploy a custom route table and associate to subnet')
 param deployRouteTable bool = false
 
 @description('Custom routes for the route table (if used)')
@@ -47,44 +41,28 @@ param deployFslogixPrivateEndpoint bool = true
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
 
+@description('Hub VNet resource ID for peering')
+param hubVnetId string
+
 // AADDS DNS IPs (update if your AADDS IPs change!)
 var aaddsDnsIps = [
   '10.0.10.4'
   '10.0.10.5'
 ]
 
-// NAT Gateway for outbound internet on AVD subnet
-module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
-  name: 'natGatewayDeployment'
-  params: {
-    location: location
-    natGatewayName: natGatewayName
-    publicIpName: publicIpName
-  }
-}
-
-// Optional Route Table deployment
-module routeTable '../../modules/networking/routeTable.bicep' = if (deployRouteTable) {
-  name: 'routeTableDeployment'
-  params: {
-    location: location
-    routeTableName: 'companyA-rt'
-    customRoutes: customRoutes
-  }
-}
-
-// Company A VNet, attach NAT Gateway, set DNS to use AADDS, associate route table if enabled
-module vnet '../../modules/networking/vnet.bicep' = {
+// VNet with one subnet
+module vnet '../../modules/networking/vnet-single-subnet.bicep' = {
   name: 'vnetDeployment'
   params: {
     location: location
-    addressPrefixes: vnetAddressPrefixes
+    addressPrefix: vnetAddressPrefix
+    subnetAddressPrefix: subnetAddressPrefix
     vnetName: 'vnet-companyA'
-    natGatewayId: natGateway.outputs.natGatewayId
+    natGatewayName: natGatewayName
+    publicIpName: publicIpName
     dnsServers: aaddsDnsIps
-    addsSubnetAAddressPrefix: addsSubnetAAddressPrefix
-    addsSubnetBAddressPrefix: addsSubnetBAddressPrefix
-    avdSubnetAddressPrefix: avdSubnetAddressPrefix
+    routeTableName: deployRouteTable ? 'companyA-rt' : ''
+    customRoutes: customRoutes
   }
 }
 
@@ -94,16 +72,22 @@ module nsg '../../modules/networking/nsg.bicep' = {
   params: {
     location: location
     nsgName: 'companyA-nsg'
+    subnetIds: [
+      vnet.outputs.subnetId
+    ]
     customRules: []
   }
 }
 
 // VNet Peering to shared hubVnet
-module peering '../../modules/networking/peering.bicep' = {
-  name: 'peeringDeployment'
-  params: {
-    vnetName: vnet.outputs.vnetName
-    peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet'
+resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
+  name: 'peer-to-hub'
+  parent: vnet.outputs.vnetName
+  properties: {
+    remoteVirtualNetwork: {
+      id: hubVnetId
+    }
+    allowVirtualNetworkAccess: true
     allowForwardedTraffic: true
     allowGatewayTransit: false
   }
@@ -125,7 +109,7 @@ module fslogixPrivateEndpoint '../../modules/networking/privateEndpoint.bicep' =
     privateEndpointName: 'companyA-fslogix-pe'
     location: location
     targetResourceId: storage.outputs.storageAccountId
-    subnetId: vnet.outputs.avdSubnetId
+    subnetId: vnet.outputs.subnetId
     privateDnsZoneConfigs: [
       {
         zoneName: 'privatelink.file.core.windows.net'
@@ -136,28 +120,66 @@ module fslogixPrivateEndpoint '../../modules/networking/privateEndpoint.bicep' =
   }
 }
 
-// Hostpool (AVD) deployment, with domain join, DNS, and FSLogix config
-module hostpool '../../modules/avd/hostpool.bicep' = {
-  name: 'hostpoolDeployment'
+// Domain Controller VM (in subnet)
+module dcVm '../../modules/domainController.bicep' = {
+  name: 'companyA-dc'
+  params: {
+    location: location
+    subnetId: vnet.outputs.subnetId
+    adminUsername: adminUsername
+    adminPassword: adminPassword
+    domainName: 'CompanyA.local'
+    dnsServers: aaddsDnsIps
+  }
+}
+
+// First AVD host pool in subnet
+module avdHostpool01 '../../modules/avd/hostpool.bicep' = {
+  name: 'companyA-avd-hostpool-01'
   params: {
     location: location
     adminUsername: adminUsername
     adminPassword: adminPassword
-    maxSessionHosts: maxSessionHosts
-    subnetId: vnet.outputs.avdSubnetId
+    maxSessionHosts: maxSessionHostsPool01
+    subnetId: vnet.outputs.subnetId
     dnsServers: aaddsDnsIps
     storageAccountId: storage.outputs.storageAccountId
-    domainName: 'corp.mohsenlab.local'
-    sessionHostPrefix: sessionHostPrefix
+    domainName: 'CompanyA.local'
+    sessionHostPrefix: '${sessionHostPrefix}-01'
     // Add FSLogix profile path if required as a parameter in your hostpool module
   }
 }
 
-// Workspace for Company A
-module workspace '../../modules/avd/workspace.bicep' = {
-  name: 'workspaceDeployment'
+// Second AVD host pool in subnet
+module avdHostpool02 '../../modules/avd/hostpool.bicep' = {
+  name: 'companyA-avd-hostpool-02'
   params: {
     location: location
-    hostPoolId: hostpool.outputs.hostPoolId
+    adminUsername: adminUsername
+    adminPassword: adminPassword
+    maxSessionHosts: maxSessionHostsPool02
+    subnetId: vnet.outputs.subnetId
+    dnsServers: aaddsDnsIps
+    storageAccountId: storage.outputs.storageAccountId
+    domainName: 'CompanyA.local'
+    sessionHostPrefix: '${sessionHostPrefix}-02'
+    // Add FSLogix profile path if required as a parameter in your hostpool module
+  }
+}
+
+// Workspace for Company A (optional, can be deployed per pool)
+module workspace01 '../../modules/avd/workspace.bicep' = {
+  name: 'workspaceDeployment01'
+  params: {
+    location: location
+    hostPoolId: avdHostpool01.outputs.hostPoolId
+  }
+}
+
+module workspace02 '../../modules/avd/workspace.bicep' = {
+  name: 'workspaceDeployment02'
+  params: {
+    location: location
+    hostPoolId: avdHostpool02.outputs.hostPoolId
   }
 }
