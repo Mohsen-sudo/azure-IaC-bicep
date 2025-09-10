@@ -85,7 +85,7 @@ module vnet '../../modules/networking/vnet.bicep' = {
   }
 }
 
-// NSG for Company A (ensure the referenced nsg.bicep contains robust AVD/AADDS rules)
+// NSG for Company A
 module nsg '../../modules/networking/nsg.bicep' = {
   name: 'nsgDeployment'
   params: {
