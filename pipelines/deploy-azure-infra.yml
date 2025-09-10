@@ -10,6 +10,7 @@ variables:
   location: "northeurope"
   keyVaultName: "sharedServicesKV-Mohsen"
   wifServiceConnection: "WIF-HubSpokes-Root"
+  AZURE_SERVICE_CONNECTION: "WIF-HubSpokes-Root"  # Add this if needed for ARM task
   domainName: "contoso.local"
   domainSecurityGroup: "AADDSAdmins"
 
@@ -62,7 +63,7 @@ stages:
           name: 'IaC-agent-pool'
         steps:
           - task: AzureCLI@2
-            displayName: 'Deploy Company A Bicep'
+            displayName: 'Deploy Company A Bicep (Azure CLI)'
             inputs:
               azureSubscription: '$(wifServiceConnection)'
               scriptType: 'pscore'
@@ -76,6 +77,19 @@ stages:
                   --parameters "@infra/stacks/company-a/company-a.parameters.json" `
                   --only-show-errors `
                   --output none
+
+          # --- ARM Template Deployment Task (fix) ---
+          - task: AzureResourceManagerTemplateDeployment@3
+            displayName: 'Deploy Company A Bicep (ARM Task)'
+            inputs:
+              deploymentScope: 'Subscription'
+              azureResourceManagerConnection: '$(AZURE_SERVICE_CONNECTION)'
+              subscriptionId: 'bc590447-877b-4cb2-9253-6d4aab175a22'
+              location: 'northeurope'
+              templateLocation: 'Linked artifact'
+              csmFile: 'infra/stacks/company-a/main.bicep'
+              csmParametersFile: 'infra/stacks/company-a/company-a.parameters.json'
+              deploymentMode: 'Incremental'
 
   - stage: CompanyB
     displayName: 'Deploy Company B (Spoke 2)'
