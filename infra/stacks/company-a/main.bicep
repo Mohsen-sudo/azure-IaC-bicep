@@ -11,8 +11,14 @@ param location string
 @description('Virtual Network address prefixes for Company A')
 param vnetAddressPrefixes array
 
-@description('Subnet address prefix for Company A')
-param subnetAddressPrefix string
+@description('Address prefix for AVD subnet')
+param avdSubnetAddressPrefix string = '10.0.3.0/24'
+
+@description('Address prefix for addsSubnetA')
+param addsSubnetAAddressPrefix string = '10.0.1.0/24'
+
+@description('Address prefix for addsSubnetB')
+param addsSubnetBAddressPrefix string = '10.0.2.0/24'
 
 @description('Maximum number of AVD session hosts')
 param maxSessionHosts int
@@ -70,11 +76,13 @@ module vnet '../../modules/networking/vnet.bicep' = {
   params: {
     location: location
     addressPrefixes: vnetAddressPrefixes
-    subnetAddressPrefix: subnetAddressPrefix
     vnetName: 'vnet-companyA'
     natGatewayId: natGateway.outputs.natGatewayId
     dnsServers: aaddsDnsIps
-    routeTableId: deployRouteTable ? routeTable.outputs.routeTableId : null
+    addsSubnetAAddressPrefix: addsSubnetAAddressPrefix
+    addsSubnetBAddressPrefix: addsSubnetBAddressPrefix
+    avdSubnetAddressPrefix: avdSubnetAddressPrefix
+    // routeTableId not needed unless your vnet.bicep uses it per subnet!
   }
 }
 
@@ -115,7 +123,7 @@ module fslogixPrivateEndpoint '../../modules/networking/privateEndpoint.bicep' =
     privateEndpointName: 'companyA-fslogix-pe'
     location: location
     targetResourceId: storage.outputs.storageAccountId
-    subnetId: vnet.outputs.subnetId
+    subnetId: vnet.outputs.avdSubnetId
     privateDnsZoneConfigs: [
       {
         zoneName: 'privatelink.file.core.windows.net'
@@ -134,7 +142,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     maxSessionHosts: maxSessionHosts
-    subnetId: vnet.outputs.subnetId
+    subnetId: vnet.outputs.avdSubnetId
     dnsServers: aaddsDnsIps
     storageAccountId: storage.outputs.storageAccountId
     domainName: 'corp.mohsenlab.local'
