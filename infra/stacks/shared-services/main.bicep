@@ -3,6 +3,9 @@ targetScope = 'resourceGroup'
 @description('Deployment location for all resources')
 param location string
 
+// =====================
+// Network Security Group
+// =====================
 resource hubNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
   name: 'hubSubnet-nsg'
   location: location
@@ -38,6 +41,9 @@ resource hubNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
   }
 }
 
+// =====================
+// Hub Virtual Network
+// =====================
 resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: 'hubVnet'
   location: location
@@ -85,7 +91,9 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   }
 }
 
-// Symbolic subnet resources for robust outputs
+// =====================
+// Subnet Symbolic Resources
+// =====================
 resource hubSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' existing = {
   parent: hubVnet
   name: 'hubSubnet'
@@ -103,6 +111,9 @@ resource addsSubnetB 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' exis
   name: 'ADDSSubnetB'
 }
 
+// =====================
+// Key Vault
+// =====================
 resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: 'sharedServicesKV-Mohsen'
   location: location
@@ -117,6 +128,9 @@ resource hubKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
+// =====================
+// VPN Gateway
+// =====================
 resource vpnGwPublicIP 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
   name: 'hubVpnGatewayPIP'
   location: location
@@ -155,7 +169,24 @@ resource vpnGateway 'Microsoft.Network/virtualNetworkGateways@2023-09-01' = {
   }
 }
 
-// Outputs for downstream VM deployment and peering
+// =====================
+// Azure AD DS
+// =====================
+resource azureADDS 'Microsoft.AAD/domainServices@2023-05-01' = {
+  name: 'aadds-mohsen'
+  location: location
+  properties: {
+    domainName: 'contoso.local'       // replace with your on-prem domain
+    subnetId: addsSubnetA.id          // dedicated subnet for Azure AD DS
+    sku: 'Standard'
+    enableSecureLDAP: false           // enable later if required
+    enableAzureResourceForest: false
+  }
+}
+
+// =====================
+// Outputs
+// =====================
 output vnetId string = hubVnet.id
 output hubSubnetId string = hubSubnet.id
 output gatewaySubnetId string = gatewaySubnet.id
@@ -164,5 +195,6 @@ output addsSubnetBId string = addsSubnetB.id
 output keyVaultId string = hubKeyVault.id
 output vpnGatewayId string = vpnGateway.id
 output vpnGwPublicIPId string = vpnGwPublicIP.id
-
-// NOTE: Deploy Windows Server VMs as domain controllers for .local domains in ADDSSubnetA and ADDSSubnetB separately!
+output azureADDSId string = azureADDS.id
+output azureADDSDomainName string = azureADDS.properties.domainName
+output azureADDSSubnetId string = addsSubnetA.id
