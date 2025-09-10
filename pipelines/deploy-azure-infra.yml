@@ -10,7 +10,8 @@ variables:
   location: "northeurope"
   keyVaultName: "sharedServicesKV-Mohsen"
   wifServiceConnection: "WIF-HubSpokes-Root"
-  dnsAdminUser: "dnsadmin"
+  domainName: "contoso.local"
+  domainSecurityGroup: "AADDSAdmins"
 
 stages:
 
@@ -45,11 +46,9 @@ stages:
           $addsSubnetAId = $jsonObj.properties.outputs.addsSubnetAId.value
           $addsSubnetBId = $jsonObj.properties.outputs.addsSubnetBId.value
           $keyVaultId    = $jsonObj.properties.outputs.keyVaultId.value
-          $dnsServerIp   = $jsonObj.properties.outputs.dnsVmPrivateIp.value
           Write-Host "##vso[task.setvariable variable=addsSubnetAId;isOutput=true]$addsSubnetAId"
           Write-Host "##vso[task.setvariable variable=addsSubnetBId;isOutput=true]$addsSubnetBId"
           Write-Host "##vso[task.setvariable variable=keyVaultId;isOutput=true]$keyVaultId"
-          Write-Host "##vso[task.setvariable variable=dnsServerIp;isOutput=true]$dnsServerIp"
 
 # ==============================
 # Stage 1.5: Manual Approval
@@ -69,52 +68,56 @@ stages:
         timeout: '0'
 
 # ==============================
-# Stage 2: Deploy AD DS VMs to Hub
+# Stage 2: Deploy Azure AD DS in Hub
 # ==============================
-- stage: DeployADDS
-  displayName: 'Deploy AD DS VMs to Hub'
+- stage: DeployAzureADDS
+  displayName: 'Deploy Azure AD DS in Hub'
   dependsOn: ManualApproval
   jobs:
-  - job: DeployADDSVMs
-    displayName: 'Deploy Domain Controller VMs'
+  - job: DeployAzureADDS
+    displayName: 'Deploy Azure AD DS'
     pool:
       name: 'IaC-agent-pool'
     variables:
-      addsSubnetAId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['addsSubnetAId']]
-      addsSubnetBId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['addsSubnetBId']]
       keyVaultId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['keyVaultId']]
+      addsSubnetAId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['addsSubnetAId']]
     steps:
     - task: AzureCLI@2
-      displayName: 'Deploy AD DS VMs Bicep'
+      displayName: 'Deploy Azure AD DS Bicep'
       inputs:
         azureSubscription: '$(wifServiceConnection)'
         scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
           az account set --subscription "$(hubSubscription)"
-          $addsVmAdminUsername = "$(dnsAdminUser)"
-          az deployment group create `
+          az group create --name rg-shared-services --location $(location)
+          $output = az deployment group create `
             --resource-group rg-shared-services `
-            --template-file infra/stacks/shared-services/adds-vms.bicep `
+            --template-file infra/stacks/shared-services/azure-adds.bicep `
             --parameters location="$(location)" `
-                         addsVmAdminUsername="$addsVmAdminUsername" `
-                         addsSubnetAId="$(addsSubnetAId)" `
-                         addsSubnetBId="$(addsSubnetBId)" `
-                         adminPassword='{"reference":{"keyVault":{"id":"$(keyVaultId)"},"secretName":"addsVmAdminPassword"}}'
+                         subnetId="$(addsSubnetAId)" `
+                         domainName="$(domainName)" `
+                         domainSecurityGroupName="$(domainSecurityGroup)" `
+            --output json
+          $jsonStart = $output.IndexOf('{')
+          $json = $output.Substring($jsonStart)
+          $jsonObj = $json | ConvertFrom-Json
+          $addsDnsIps = $jsonObj.properties.outputs.addsDnsIps.value
+          Write-Host "##vso[task.setvariable variable=addsDnsIps;isOutput=true]$($addsDnsIps -join ',')"
 
 # ==============================
 # Stage 3: Deploy Spoke 1 / Company A
 # ==============================
 - stage: CompanyA
   displayName: 'Deploy Company A (Spoke 1)'
-  dependsOn: ManualApproval
+  dependsOn: DeployAzureADDS
   jobs:
   - job: DeployCompanyA
     displayName: 'Deploy Company A Resources'
     pool:
       name: 'IaC-agent-pool'
     variables:
-      dnsServerIp: $[stageDependencies.SharedServices.DeploySharedServices.outputs['dnsServerIp']]
+      addsDnsIps: $[stageDependencies.DeployAzureADDS.DeployAzureADDS.outputs['addsDnsIps']]
     steps:
     - task: AzureCLI@2
       displayName: 'Deploy Company A Bicep'
@@ -129,7 +132,7 @@ stages:
             --resource-group rg-company-a `
             --template-file infra/stacks/company-a/main.bicep `
             --parameters "@infra/stacks/company-a/company-a.parameters.json" `
-                         dnsServerIp="$(dnsServerIp)" `
+                         dnsServerIp="$(addsDnsIps)" `
             --output json
 
 # ==============================
@@ -137,23 +140,15 @@ stages:
 # ==============================
 - stage: CompanyB
   displayName: 'Deploy Company B (Spoke 2)'
-  dependsOn: ManualApproval
+  dependsOn: DeployAzureADDS
   jobs:
   - job: DeployCompanyB
     displayName: 'Deploy Company B Resources'
     pool:
       name: 'IaC-agent-pool'
     variables:
-      dnsServerIp: $[stageDependencies.SharedServices.DeploySharedServices.outputs['dnsServerIp']]
+      addsDnsIps: $[stageDependencies.DeployAzureADDS.DeployAzureADDS.outputs['addsDnsIps']]
     steps:
-    - task: AzureKeyVault@2
-      displayName: 'Fetch CompanyBAdminPassword from Key Vault'
-      inputs:
-        azureSubscription: '$(wifServiceConnection)'
-        KeyVaultName: '$(keyVaultName)'
-        SecretsFilter: 'CompanyBAdminPassword'
-        RunAsPreJob: true
-
     - task: AzureCLI@2
       displayName: 'Deploy Company B Bicep'
       inputs:
@@ -167,5 +162,5 @@ stages:
             --resource-group rg-company-b `
             --template-file infra/stacks/company-b/main.bicep `
             --parameters "@infra/stacks/company-b/company-b.parameters.json" `
-                         dnsServerIp="$(dnsServerIp)" `
+                         dnsServerIp="$(addsDnsIps)" `
             --output json
