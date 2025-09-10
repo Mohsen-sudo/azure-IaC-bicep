@@ -72,48 +72,6 @@ stages:
         instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
         timeout: '0'
 
-# ==============================
-# Stage 2: Deploy Azure AD DS in Hub
-# ==============================
-- stage: DeployAzureADDS
-  displayName: 'Deploy Azure AD DS in Hub'
-  dependsOn: ManualApproval
-  jobs:
-  - job: DeployAzureADDS
-    displayName: 'Deploy Azure AD DS'
-    pool:
-      name: 'IaC-agent-pool'
-    variables:
-      keyVaultId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['keyVaultId']]
-      addsSubnetAId: $[stageDependencies.SharedServices.DeploySharedServices.outputs['addsSubnetAId']]
-    steps:
-    - task: AzureCLI@2
-      displayName: 'Deploy Azure AD DS Bicep'
-      inputs:
-        azureSubscription: '$(wifServiceConnection)'
-        scriptType: 'ps'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          az account set --subscription "$(hubSubscription)"
-          az group create --name rg-shared-services --location $(location)
-          $output = az deployment group create `
-            --resource-group rg-shared-services `
-            --template-file infra/stacks/shared-services/azure-adds.bicep `
-            --parameters location="$(location)" `
-                         subnetId="$(addsSubnetAId)" `
-                         domainName="$(domainName)" `
-                         domainSecurityGroupName="$(domainSecurityGroup)" `
-            --output json
-          if ([string]::IsNullOrEmpty($output) -or $output -like '*ERROR*') {
-            Write-Error "Deployment output is empty or error detected. See deployment errors above."
-            exit 1
-          }
-          $jsonStart = $output.IndexOf('{')
-          $json = $output.Substring($jsonStart)
-          $jsonObj = $json | ConvertFrom-Json
-          $addsDnsIps = $jsonObj.properties.outputs.addsDnsIps.value
-          Write-Host "##vso[task.setvariable variable=addsDnsIps;isOutput=true]$($addsDnsIps -join ',')"
 
 # ==============================
 # Stage 3: Deploy Spoke 1 / Company A
