@@ -24,7 +24,7 @@
       "value": "10.1.2.0/24"    // <-- UPDATED
     },
     "maxSessionHosts": {
-      "value": 5
+      "value": 1
     },
     "sessionHostPrefix": {
       "value": "cmpA-avd"
