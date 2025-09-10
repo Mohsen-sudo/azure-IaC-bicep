@@ -169,6 +169,26 @@ resource vpnGateway 'Microsoft.Network/virtualNetworkGateways@2023-09-01' = {
   }
 }
 
+// =====================
+// Azure AD DS
+// =====================
+resource azureADDS 'Microsoft.AAD/domainServices@2022-12-01' = {
+  name: 'aadds-mohsen'
+  location: location
+  properties: {
+    domainName: 'contoso.local'
+    sku: 'Standard'
+    replicaSets: [
+      {
+        location: location
+        subnetId: addsSubnetA.id
+      }
+    ]
+    // ldapsSettings: {
+    //   ldaps: 'Disabled'
+    // }
+  }
+}
 
 // =====================
 // Outputs
