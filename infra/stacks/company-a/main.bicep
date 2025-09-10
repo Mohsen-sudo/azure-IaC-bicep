@@ -26,6 +26,12 @@ param natGatewayName string = 'companyA-natgw'
 @description('Name of the Public IP for NAT Gateway')
 param publicIpName string = 'companyA-natgw-pip'
 
+@description('Optional: Deploy a custom route table and associate to AVD subnet')
+param deployRouteTable bool = false
+
+@description('Custom routes for the route table (if used)')
+param customRoutes array = []
+
 // AADDS DNS IPs - update these if your AADDS IPs change!
 var aaddsDnsIps = [
   '10.0.10.4'
@@ -42,7 +48,17 @@ module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
   }
 }
 
-// Deploy Company A VNet, attach NAT Gateway to subnet, set DNS to use AADDS
+// Optional Route Table deployment (only if deployRouteTable is true)
+module routeTable '../../modules/networking/routeTable.bicep' = if (deployRouteTable) {
+  name: 'routeTableDeployment'
+  params: {
+    location: location
+    routeTableName: 'companyA-rt'
+    customRoutes: customRoutes
+  }
+}
+
+// Deploy Company A VNet, attach NAT Gateway to subnet, set DNS to use AADDS, associate route table if enabled
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
   params: {
@@ -51,18 +67,17 @@ module vnet '../../modules/networking/vnet.bicep' = {
     subnetAddressPrefix: subnetAddressPrefix
     vnetName: 'vnet-companyA'
     natGatewayId: natGateway.outputs.natGatewayId
-    // Only AADDS DNS for domain join
     dnsServers: aaddsDnsIps
+    routeTableId: deployRouteTable ? routeTable.outputs.routeTableId : null
   }
 }
 
-// Deploy NSG for Company A, with secure and complete rules
+// Deploy NSG for Company A
 module nsg '../../modules/networking/nsg.bicep' = {
   name: 'nsgDeployment'
   params: {
     location: location
     nsgName: 'companyA-nsg'
-    // No custom rules for now, but could add jumpbox/public IP for RDP if needed
     customRules: []
   }
 }
