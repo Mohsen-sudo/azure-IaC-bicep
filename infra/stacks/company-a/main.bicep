@@ -32,13 +32,19 @@ param deployRouteTable bool = false
 @description('Custom routes for the route table (if used)')
 param customRoutes array = []
 
-// AADDS DNS IPs - update these if your AADDS IPs change!
+@description('Deploy FSLogix Private Endpoint and DNS config for Azure Files')
+param deployFslogixPrivateEndpoint bool = true
+
+@description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
+param privateDnsZoneId string = ''
+
+// AADDS DNS IPs (update if your AADDS IPs change!)
 var aaddsDnsIps = [
   '10.0.10.4'
   '10.0.10.5'
 ]
 
-// NAT Gateway for outbound internet on AVD subnet (deploy first)
+// NAT Gateway for outbound internet on AVD subnet
 module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
   name: 'natGatewayDeployment'
   params: {
@@ -48,7 +54,7 @@ module natGateway '../../modules/avd/nat-gateway-avd.bicep' = {
   }
 }
 
-// Optional Route Table deployment (only if deployRouteTable is true)
+// Optional Route Table deployment
 module routeTable '../../modules/networking/routeTable.bicep' = if (deployRouteTable) {
   name: 'routeTableDeployment'
   params: {
@@ -58,7 +64,7 @@ module routeTable '../../modules/networking/routeTable.bicep' = if (deployRouteT
   }
 }
 
-// Deploy Company A VNet, attach NAT Gateway to subnet, set DNS to use AADDS, associate route table if enabled
+// Company A VNet, attach NAT Gateway, set DNS to use AADDS, associate route table if enabled
 module vnet '../../modules/networking/vnet.bicep' = {
   name: 'vnetDeployment'
   params: {
@@ -72,7 +78,7 @@ module vnet '../../modules/networking/vnet.bicep' = {
   }
 }
 
-// Deploy NSG for Company A
+// NSG for Company A (ensure the referenced nsg.bicep contains robust AVD/AADDS rules)
 module nsg '../../modules/networking/nsg.bicep' = {
   name: 'nsgDeployment'
   params: {
@@ -88,12 +94,12 @@ module peering '../../modules/networking/peering.bicep' = {
   params: {
     vnetName: vnet.outputs.vnetName
     peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet'
-    allowForwardedTraffic: true // Best practice for AVD/hub scenarios
+    allowForwardedTraffic: true
     allowGatewayTransit: false
   }
 }
 
-// Storage for Company A
+// Storage for Company A (used for FSLogix profiles)
 module storage '../../modules/storage/storage.bicep' = {
   name: 'storageDeployment'
   params: {
@@ -102,7 +108,25 @@ module storage '../../modules/storage/storage.bicep' = {
   }
 }
 
-// Hostpool (AVD) deployment, with domain join and AAD DS DNS settings
+// FSLogix Private Endpoint for Azure Files (+ Private DNS Zone group link)
+module fslogixPrivateEndpoint '../../modules/networking/privateEndpoint.bicep' = if (deployFslogixPrivateEndpoint) {
+  name: 'fslogixPrivateEndpointDeployment'
+  params: {
+    privateEndpointName: 'companyA-fslogix-pe'
+    location: location
+    targetResourceId: storage.outputs.storageAccountId
+    subnetId: vnet.outputs.subnetId
+    privateDnsZoneConfigs: [
+      {
+        zoneName: 'privatelink.file.core.windows.net'
+        zoneId: privateDnsZoneId
+      }
+    ]
+    // For Azure Files, set groupIds to ['file'] in privateEndpoint.bicep if required
+  }
+}
+
+// Hostpool (AVD) deployment, with domain join, DNS, and FSLogix config
 module hostpool '../../modules/avd/hostpool.bicep' = {
   name: 'hostpoolDeployment'
   params: {
@@ -115,6 +139,7 @@ module hostpool '../../modules/avd/hostpool.bicep' = {
     storageAccountId: storage.outputs.storageAccountId
     domainName: 'corp.mohsenlab.local'
     sessionHostPrefix: sessionHostPrefix
+    // Add FSLogix profile path if required as a parameter in your hostpool module
   }
 }
 
