@@ -30,7 +30,7 @@ stages:
       displayName: 'Deploy Shared Services Bicep'
       inputs:
         azureSubscription: '$(wifServiceConnection)'
-        scriptType: 'ps'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -91,7 +91,7 @@ stages:
       displayName: 'Deploy Azure AD DS Bicep'
       inputs:
         azureSubscription: '$(wifServiceConnection)'
-        scriptType: 'ps'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -133,7 +133,7 @@ stages:
       displayName: 'Deploy Company A Bicep'
       inputs:
         azureSubscription: '$(wifServiceConnection)'
-        scriptType: 'ps'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -164,7 +164,7 @@ stages:
       displayName: 'Deploy Company B Bicep'
       inputs:
         azureSubscription: '$(wifServiceConnection)'
-        scriptType: 'ps'
+        scriptType: 'pscore'
         scriptLocation: 'inlineScript'
         inlineScript: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
