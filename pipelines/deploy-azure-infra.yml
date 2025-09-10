@@ -14,97 +14,90 @@ variables:
   domainSecurityGroup: "AADDSAdmins"
 
 stages:
+  - stage: SharedServices
+    displayName: 'Deploy Shared Services (Hub)'
+    jobs:
+      - job: DeploySharedServices
+        displayName: 'Deploy Hub Resources'
+        pool:
+          name: 'IaC-agent-pool'
+        steps:
+          - task: AzureCLI@2
+            displayName: 'Deploy Shared Services Bicep'
+            inputs:
+              azureSubscription: '$(wifServiceConnection)'
+              scriptType: 'pscore'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account set --subscription "$(hubSubscription)"
+                az group create --name rg-shared-services --location $(location)
+                az deployment group create `
+                  --resource-group rg-shared-services `
+                  --template-file infra/stacks/shared-services/main.bicep `
+                  --parameters "@infra/stacks/shared-services/main.json" `
+                  --only-show-errors `
+                  --output none
 
-# ==============================
-# Stage 1: Deploy Hub / Shared Services
-# ==============================
-- stage: SharedServices
-  displayName: 'Deploy Shared Services (Hub)'
-  jobs:
-  - job: DeploySharedServices
-    displayName: 'Deploy Hub Resources'
-    pool:
-      name: 'IaC-agent-pool'
-    steps:
-    - task: AzureCLI@2
-      displayName: 'Deploy Shared Services Bicep'
-      inputs:
-        azureSubscription: '$(wifServiceConnection)'
-        scriptType: 'ps'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          az account set --subscription "$(hubSubscription)"
-          az group create --name rg-shared-services --location $(location)
-          az deployment group create `
-            --resource-group rg-shared-services `
-            --template-file infra/stacks/shared-services/main.bicep `
-            --parameters "@infra/stacks/shared-services/main.json"
+  - stage: ManualApproval
+    displayName: 'Manual Approval Before Spokes'
+    dependsOn: SharedServices
+    jobs:
+      - job: WaitForApproval
+        displayName: 'Wait for Manual Approval'
+        pool: server
+        steps:
+          - task: ManualValidation@0
+            inputs:
+              notifyUsers: 'boxclean@gmail.com'
+              instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
+              timeout: '0'
 
-# ==============================
-# Stage 1.5: Manual Approval
-# ==============================
-- stage: ManualApproval
-  displayName: 'Manual Approval Before Spokes'
-  dependsOn: SharedServices
-  jobs:
-  - job: WaitForApproval
-    displayName: 'Wait for Manual Approval'
-    pool: server
-    steps:
-    - task: ManualValidation@0
-      inputs:
-        notifyUsers: 'boxclean@gmail.com'
-        instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
-        timeout: '0'
+  - stage: CompanyA
+    displayName: 'Deploy Company A (Spoke 1)'
+    dependsOn: ManualApproval
+    jobs:
+      - job: DeployCompanyA
+        displayName: 'Deploy Company A Resources'
+        pool:
+          name: 'IaC-agent-pool'
+        steps:
+          - task: AzureCLI@2
+            displayName: 'Deploy Company A Bicep'
+            inputs:
+              azureSubscription: '$(wifServiceConnection)'
+              scriptType: 'pscore'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account set --subscription "$(spoke1Subscription)"
+                az group create --name rg-company-a --location $(location)
+                az deployment group create `
+                  --resource-group rg-company-a `
+                  --template-file infra/stacks/company-a/main.bicep `
+                  --parameters "@infra/stacks/company-a/company-a.parameters.json" `
+                  --only-show-errors `
+                  --output none
 
-# ==============================
-# Stage 2: Deploy Spoke 1 / Company A
-# ==============================
-- stage: CompanyA
-  displayName: 'Deploy Company A (Spoke 1)'
-  dependsOn: ManualApproval
-  jobs:
-  - job: DeployCompanyA
-    displayName: 'Deploy Company A Resources'
-    pool:
-      name: 'IaC-agent-pool'
-    steps:
-    - task: AzureCLI@2
-      displayName: 'Deploy Company A Bicep'
-      inputs:
-        azureSubscription: '$(wifServiceConnection)'
-        scriptType: 'ps'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          az account set --subscription "$(spoke1Subscription)"
-          az group create --name rg-company-a --location $(location)
-          az deployment group create `
-            --resource-group rg-company-a `
-            --template-file infra/stacks/company-a/main.bicep `
-            --parameters "@infra/stacks/company-a/company-a.parameters.json"
-
-# ==============================
-# Stage 3: Deploy Spoke 2 / Company B
-# ==============================
-- stage: CompanyB
-  displayName: 'Deploy Company B (Spoke 2)'
-  dependsOn: ManualApproval
-  jobs:
-  - job: DeployCompanyB
-    displayName: 'Deploy Company B Resources'
-    pool:
-      name: 'IaC-agent-pool'
-    steps:
-    - task: AzureCLI@2
-      displayName: 'Deploy Company B Bicep'
-      inputs:
-        azureSubscription: '$(wifServiceConnection)'
-        scriptType: 'ps'
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          az account set --subscription "$(spoke2Subscription)"
-          az group create --name rg-company-b --location $(location)
-          az deployment group create `
-            --resource-group rg-company-b `
-            --template-file infra/stacks/company-b/main.bicep `
-            --parameters "@infra/stacks/company-b/company-b.parameters.json"
+  - stage: CompanyB
+    displayName: 'Deploy Company B (Spoke 2)'
+    dependsOn: ManualApproval
+    jobs:
+      - job: DeployCompanyB
+        displayName: 'Deploy Company B Resources'
+        pool:
+          name: 'IaC-agent-pool'
+        steps:
+          - task: AzureCLI@2
+            displayName: 'Deploy Company B Bicep'
+            inputs:
+              azureSubscription: '$(wifServiceConnection)'
+              scriptType: 'pscore'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account set --subscription "$(spoke2Subscription)"
+                az group create --name rg-company-b --location $(location)
+                az deployment group create `
+                  --resource-group rg-company-b `
+                  --template-file infra/stacks/company-b/main.bicep `
+                  --parameters "@infra/stacks/company-b/company-b.parameters.json" `
+                  --only-show-errors `
+                  --output none
