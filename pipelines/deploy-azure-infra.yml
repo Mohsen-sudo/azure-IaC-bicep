@@ -29,27 +29,31 @@ stages:
     - task: AzureCLI@2
       displayName: 'Deploy Shared Services Bicep'
       inputs:
-        azureSubscription: '${{ variables.wifServiceConnection }}'
-        scriptType: 'bash'
+        azureSubscription: '$(wifServiceConnection)'
+        scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          az account set --subscription "$hubSubscription"
-          az group create --name rg-shared-services --location "$location"
-          output=$(az deployment group create \
-            --resource-group rg-shared-services \
-            --template-file infra/stacks/shared-services/main.bicep \
-            --parameters "@infra/stacks/shared-services/main.json" \
-            --output json)
-          if [ -z "$output" ]; then
-            echo "Deployment output is empty. See deployment errors above."
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          az account set --subscription "$(hubSubscription)"
+          az group create --name rg-shared-services --location $(location)
+          $output = az deployment group create `
+            --resource-group rg-shared-services `
+            --template-file infra/stacks/shared-services/main.bicep `
+            --parameters "@infra/stacks/shared-services/main.json" `
+            --output json
+          if ([string]::IsNullOrEmpty($output) -or $output -like '*ERROR*') {
+            Write-Error "Deployment output is empty or error detected. See deployment errors above."
             exit 1
-          fi
-          addsSubnetAId=$(echo "$output" | jq -r '.properties.outputs.addsSubnetAId.value')
-          addsSubnetBId=$(echo "$output" | jq -r '.properties.outputs.addsSubnetBId.value')
-          keyVaultId=$(echo "$output" | jq -r '.properties.outputs.keyVaultId.value')
-          echo "##vso[task.setvariable variable=addsSubnetAId;isOutput=true]$addsSubnetAId"
-          echo "##vso[task.setvariable variable=addsSubnetBId;isOutput=true]$addsSubnetBId"
-          echo "##vso[task.setvariable variable=keyVaultId;isOutput=true]$keyVaultId"
+          }
+          $jsonStart = $output.IndexOf('{')
+          $json = $output.Substring($jsonStart)
+          $jsonObj = $json | ConvertFrom-Json
+          $addsSubnetAId = $jsonObj.properties.outputs.addsSubnetAId.value
+          $addsSubnetBId = $jsonObj.properties.outputs.addsSubnetBId.value
+          $keyVaultId    = $jsonObj.properties.outputs.keyVaultId.value
+          Write-Host "##vso[task.setvariable variable=addsSubnetAId;isOutput=true]$addsSubnetAId"
+          Write-Host "##vso[task.setvariable variable=addsSubnetBId;isOutput=true]$addsSubnetBId"
+          Write-Host "##vso[task.setvariable variable=keyVaultId;isOutput=true]$keyVaultId"
 
 # ==============================
 # Stage 1.5: Manual Approval
@@ -86,26 +90,30 @@ stages:
     - task: AzureCLI@2
       displayName: 'Deploy Azure AD DS Bicep'
       inputs:
-        azureSubscription: '${{ variables.wifServiceConnection }}'
-        scriptType: 'bash'
+        azureSubscription: '$(wifServiceConnection)'
+        scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          az account set --subscription "$hubSubscription"
-          az group create --name rg-shared-services --location "$location"
-          output=$(az deployment group create \
-            --resource-group rg-shared-services \
-            --template-file infra/stacks/shared-services/azure-adds.bicep \
-            --parameters location="$location" \
-                         subnetId="$addsSubnetAId" \
-                         domainName="$domainName" \
-                         domainSecurityGroupName="$domainSecurityGroup" \
-            --output json)
-          if [ -z "$output" ]; then
-            echo "Deployment output is empty. See deployment errors above."
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          az account set --subscription "$(hubSubscription)"
+          az group create --name rg-shared-services --location $(location)
+          $output = az deployment group create `
+            --resource-group rg-shared-services `
+            --template-file infra/stacks/shared-services/azure-adds.bicep `
+            --parameters location="$(location)" `
+                         subnetId="$(addsSubnetAId)" `
+                         domainName="$(domainName)" `
+                         domainSecurityGroupName="$(domainSecurityGroup)" `
+            --output json
+          if ([string]::IsNullOrEmpty($output) -or $output -like '*ERROR*') {
+            Write-Error "Deployment output is empty or error detected. See deployment errors above."
             exit 1
-          fi
-          addsDnsIps=$(echo "$output" | jq -r '.properties.outputs.addsDnsIps.value | join(",")')
-          echo "##vso[task.setvariable variable=addsDnsIps;isOutput=true]$addsDnsIps"
+          }
+          $jsonStart = $output.IndexOf('{')
+          $json = $output.Substring($jsonStart)
+          $jsonObj = $json | ConvertFrom-Json
+          $addsDnsIps = $jsonObj.properties.outputs.addsDnsIps.value
+          Write-Host "##vso[task.setvariable variable=addsDnsIps;isOutput=true]$($addsDnsIps -join ',')"
 
 # ==============================
 # Stage 3: Deploy Spoke 1 / Company A
@@ -124,17 +132,18 @@ stages:
     - task: AzureCLI@2
       displayName: 'Deploy Company A Bicep'
       inputs:
-        azureSubscription: '${{ variables.wifServiceConnection }}'
-        scriptType: 'bash'
+        azureSubscription: '$(wifServiceConnection)'
+        scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          az account set --subscription "$spoke1Subscription"
-          az group create --name rg-company-a --location "$location"
-          az deployment group create \
-            --resource-group rg-company-a \
-            --template-file infra/stacks/company-a/main.bicep \
-            --parameters "@infra/stacks/company-a/company-a.parameters.json" \
-                         dnsServerIp="$addsDnsIps" \
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          az account set --subscription "$(spoke1Subscription)"
+          az group create --name rg-company-a --location $(location)
+          az deployment group create `
+            --resource-group rg-company-a `
+            --template-file infra/stacks/company-a/main.bicep `
+            --parameters "@infra/stacks/company-a/company-a.parameters.json" `
+                         dnsServerIp="$(addsDnsIps)" `
             --output json
 
 # ==============================
@@ -154,15 +163,16 @@ stages:
     - task: AzureCLI@2
       displayName: 'Deploy Company B Bicep'
       inputs:
-        azureSubscription: '${{ variables.wifServiceConnection }}'
-        scriptType: 'bash'
+        azureSubscription: '$(wifServiceConnection)'
+        scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
-          az account set --subscription "$spoke2Subscription"
-          az group create --name rg-company-b --location "$location"
-          az deployment group create \
-            --resource-group rg-company-b \
-            --template-file infra/stacks/company-b/main.bicep \
-            --parameters "@infra/stacks/company-b/company-b.parameters.json" \
-                         dnsServerIp="$addsDnsIps" \
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          az account set --subscription "$(spoke2Subscription)"
+          az group create --name rg-company-b --location $(location)
+          az deployment group create `
+            --resource-group rg-company-b `
+            --template-file infra/stacks/company-b/main.bicep `
+            --parameters "@infra/stacks/company-b/company-b.parameters.json" `
+                         dnsServerIp="$(addsDnsIps)" `
             --output json
