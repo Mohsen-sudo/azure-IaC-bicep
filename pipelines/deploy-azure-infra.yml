@@ -33,6 +33,7 @@ stages:
         scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           az account set --subscription "$(hubSubscription)"
           az group create --name rg-shared-services --location $(location)
           $output = az deployment group create `
@@ -40,6 +41,10 @@ stages:
             --template-file infra/stacks/shared-services/main.bicep `
             --parameters "@infra/stacks/shared-services/main.json" `
             --output json
+          if ([string]::IsNullOrEmpty($output)) {
+            Write-Error "Deployment output is empty. See deployment errors above."
+            exit 1
+          }
           $jsonStart = $output.IndexOf('{')
           $json = $output.Substring($jsonStart)
           $jsonObj = $json | ConvertFrom-Json
@@ -89,6 +94,7 @@ stages:
         scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           az account set --subscription "$(hubSubscription)"
           az group create --name rg-shared-services --location $(location)
           $output = az deployment group create `
@@ -99,6 +105,10 @@ stages:
                          domainName="$(domainName)" `
                          domainSecurityGroupName="$(domainSecurityGroup)" `
             --output json
+          if ([string]::IsNullOrEmpty($output)) {
+            Write-Error "Deployment output is empty. See deployment errors above."
+            exit 1
+          }
           $jsonStart = $output.IndexOf('{')
           $json = $output.Substring($jsonStart)
           $jsonObj = $json | ConvertFrom-Json
@@ -126,6 +136,7 @@ stages:
         scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           az account set --subscription "$(spoke1Subscription)"
           az group create --name rg-company-a --location $(location)
           az deployment group create `
@@ -156,6 +167,7 @@ stages:
         scriptType: 'ps'
         scriptLocation: 'inlineScript'
         inlineScript: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           az account set --subscription "$(spoke2Subscription)"
           az group create --name rg-company-b --location $(location)
           az deployment group create `
