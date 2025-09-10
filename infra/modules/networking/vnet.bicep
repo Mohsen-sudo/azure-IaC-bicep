@@ -1,12 +1,30 @@
+@description('Azure location for the VNet')
 param location string
+
+@description('Address prefixes for the VNet')
 param addressPrefixes array
+
+@description('Name of the VNet')
 param vnetName string = 'vnet-companyA'
+
+@description('NAT Gateway resource id (optional)')
 param natGatewayId string = ''
+
+@description('DNS servers for the VNet (AADDS IPs only recommended)')
 param dnsServers array = [
   '10.0.10.4'
   '10.0.10.5'
-  '168.63.129.16'
 ]
+
+// AADDS subnet address prefixes (parameterize for flexibility)
+@description('Address prefix for addsSubnetA')
+param addsSubnetAAddressPrefix string = '10.0.1.0/24'
+
+@description('Address prefix for addsSubnetB')
+param addsSubnetBAddressPrefix string = '10.0.2.0/24'
+
+@description('Address prefix for AVD subnet')
+param avdSubnetAddressPrefix string = '10.0.3.0/24'
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: vnetName
@@ -22,23 +40,26 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
 }
 
 resource addsSubnetA 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' = {
-  name: '${vnet.name}/adds-subnetA'
+  name: 'adds-subnetA'
+  parent: vnet
   properties: {
-    addressPrefix: '10.0.1.0/24'
+    addressPrefix: addsSubnetAAddressPrefix
   }
 }
 
 resource addsSubnetB 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' = {
-  name: '${vnet.name}/adds-subnetB'
+  name: 'adds-subnetB'
+  parent: vnet
   properties: {
-    addressPrefix: '10.0.2.0/24'
+    addressPrefix: addsSubnetBAddressPrefix
   }
 }
 
 resource avdSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' = {
-  name: '${vnet.name}/subnet-avd'
+  name: 'subnet-avd'
+  parent: vnet
   properties: union({
-    addressPrefix: '10.0.3.0/24'
+    addressPrefix: avdSubnetAddressPrefix
   }, !empty(natGatewayId) ? {
     natGateway: {
       id: natGatewayId
