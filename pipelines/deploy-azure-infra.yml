@@ -62,23 +62,6 @@ stages:
         pool:
           name: 'IaC-agent-pool'
         steps:
-          - task: AzureCLI@2
-            displayName: 'Deploy Company A Bicep (Azure CLI)'
-            inputs:
-              azureSubscription: '$(wifServiceConnection)'
-              scriptType: 'pscore'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                az account set --subscription "$(spoke1Subscription)"
-                az group create --name rg-company-a --location $(location)
-                az deployment group create `
-                  --resource-group rg-company-a `
-                  --template-file infra/stacks/company-a/main.bicep `
-                  --parameters "@infra/stacks/company-a/company-a.parameters.json" `
-                  --only-show-errors `
-                  --output none
-
-          # --- ARM Template Deployment Task (fix) ---
           - task: AzureResourceManagerTemplateDeployment@3
             displayName: 'Deploy Company A Bicep (ARM Task)'
             inputs:
