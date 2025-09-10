@@ -2,27 +2,29 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "adminPassword": {
-      "reference": {
-        "keyVault": {
-          "id": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV-Mohsen"
-        },
-        "secretName": "CompanyAAdminPassword"
-      }
-    },
     "adminUsername": {
-      "value": "Aadmin"
+      "value": "CompanyAAdmin"
+    },
+    "adminPassword": {
+      "value": ""  // will be overridden by pipeline variable
     },
     "location": {
       "value": "northeurope"
     },
-    "maxSessionHosts": {
-      "value": 1
-    },
     "vnetAddressPrefixes": {
-      "value": [
-        "10.1.0.0/16"
-      ]
+      "value": ["10.0.0.0/16"]
+    },
+    "avdSubnetAddressPrefix": {
+      "value": "10.0.3.0/24"
+    },
+    "addsSubnetAAddressPrefix": {
+      "value": "10.0.1.0/24"
+    },
+    "addsSubnetBAddressPrefix": {
+      "value": "10.0.2.0/24"
+    },
+    "maxSessionHosts": {
+      "value": 5
     },
     "sessionHostPrefix": {
       "value": "cmpA-avd"
@@ -33,14 +35,17 @@
     "publicIpName": {
       "value": "companyA-natgw-pip"
     },
-    "addsSubnetAAddressPrefix": {
-      "value": "10.1.1.0/24"
+    "deployRouteTable": {
+      "value": false
     },
-    "addsSubnetBAddressPrefix": {
-      "value": "10.1.2.0/24"
+    "customRoutes": {
+      "value": []
     },
-    "avdSubnetAddressPrefix": {
-      "value": "10.1.3.0/24"
+    "deployFslogixPrivateEndpoint": {
+      "value": true
+    },
+    "privateDnsZoneId": {
+      "value": ""
     }
   }
 }
