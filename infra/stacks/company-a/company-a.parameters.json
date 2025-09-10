@@ -19,9 +19,6 @@
     "maxSessionHosts": {
       "value": 1
     },
-    "subnetAddressPrefix": {
-      "value": "10.1.0.0/24"
-    },
     "vnetAddressPrefixes": {
       "value": [
         "10.1.0.0/16"
@@ -35,6 +32,15 @@
     },
     "publicIpName": {
       "value": "companyA-natgw-pip"
+    },
+    "addsSubnetAAddressPrefix": {
+      "value": "10.1.1.0/24"
+    },
+    "addsSubnetBAddressPrefix": {
+      "value": "10.1.2.0/24"
+    },
+    "avdSubnetAddressPrefix": {
+      "value": "10.1.3.0/24"
     }
   }
 }
