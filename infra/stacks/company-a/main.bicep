@@ -16,8 +16,14 @@ param privateDnsZoneId string = ''
 @description('Hub VNet resource ID for peering')
 param hubVnetId string
 
+@description('Hub VNet resource group name')
+param hubVnetRg string
+
 @description('ADDS VNet resource ID for peering with Company A')
 param addsVnetId string
+
+@description('ADDS VNet resource group name')
+param addsVnetRg string
 
 // Optional: NSG for subnet
 var nsgRules = [
@@ -113,6 +119,32 @@ resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' 
   }
 }
 
+// Example AVD Host Pool - FIRST
+resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyA-avd-hostpool01'
+  location: location
+  properties: {
+    friendlyName: 'CompanyA-HostPool01'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
+  }
+}
+
+// Second AVD Host Pool - placed immediately after the first
+resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyA-avd-hostpool02'
+  location: location
+  properties: {
+    friendlyName: 'CompanyA-HostPool02'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
+  }
+}
+
 // VNet Peering to Hub (this side only)
 resource vnetPeeringHub 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
   name: 'companyA-to-hub-peering'
@@ -139,41 +171,16 @@ resource companyAToAddsPeering 'Microsoft.Network/virtualNetworks/virtualNetwork
   }
 }
 
-// ADDS → CompanyA peering (remote side via peering.bicep module)
+// ADDS → CompanyA peering (remote side via peering.bicep module, placed last)
 module addsToCompanyAModule '../../modules/networking/peering.bicep' = {
   name: 'adds-to-companyA-peering'
-  scope: resourceGroup(split(addsVnetId, '/')[4]) // extracts RG name from ADDS VNet resourceId
+  scope: resourceGroup(addsVnetRg) // ADDS RG, passed in parameter
   params: {
-    localVnetId: addsVnetId // ADDS VNet is "local" in this module
-    peerVnetId: vnet.id     // CompanyA VNet is the remote
+    localVnetId: addsVnetId // ADDS VNet (local in remote RG)
+    peerVnetId: vnet.id     // CompanyA VNet (remote)
     peeringName: 'adds-to-companyA-peering'
     allowForwardedTraffic: true
     allowGatewayTransit: false
     useRemoteGateways: false
-  }
-}
-
-// Example AVD Host Pools
-resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
-  name: 'companyA-avd-hostpool01'
-  location: location
-  properties: {
-    friendlyName: 'CompanyA-HostPool01'
-    hostPoolType: 'Pooled'
-    validationEnvironment: false
-    loadBalancerType: 'BreadthFirst'
-    preferredAppGroupType: 'Desktop'
-  }
-}
-
-resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
-  name: 'companyA-avd-hostpool02'
-  location: location
-  properties: {
-    friendlyName: 'CompanyA-HostPool02'
-    hostPoolType: 'Pooled'
-    validationEnvironment: false
-    loadBalancerType: 'BreadthFirst'
-    preferredAppGroupType: 'Desktop'
   }
 }
