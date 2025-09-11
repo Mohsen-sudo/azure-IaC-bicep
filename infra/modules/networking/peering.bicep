@@ -16,8 +16,12 @@ param allowGatewayTransit bool = false
 @description('Whether to use remote gateways')
 param useRemoteGateways bool = false
 
+var localVnetName = last(split(localVnetId, '/'))
+var localVnetRg = split(localVnetId, '/')[4]
+
 resource localVnet 'Microsoft.Network/virtualNetworks@2023-09-01' existing = {
-  id: localVnetId
+  name: localVnetName
+  scope: resourceGroup(localVnetRg)
 }
 
 resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
