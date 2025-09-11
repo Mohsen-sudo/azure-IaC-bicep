@@ -6,6 +6,10 @@
     "vnetAddressPrefix": { "value": "10.2.0.0/16" },
     "subnetAddressPrefix": { "value": "10.2.1.0/24" },
     "storageAccountName": { "value": "companyastorage" },
-    "privateDnsZoneId": { "value": "" }
+    "privateDnsZoneId": { "value": "" },
+    "adminUsername": { "value": "" },
+    "adminPassword": { "value": "" },
+    "domainJoinUsername": { "value": "" },
+    "domainJoinPassword": { "value": "" }
   }
 }
