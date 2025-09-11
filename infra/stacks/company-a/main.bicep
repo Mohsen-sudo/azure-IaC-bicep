@@ -16,8 +16,8 @@ param privateDnsZoneId string = ''
 @description('Admin username for session host VM')
 param adminUsername string
 
-@description('Admin password for session host VM')
 @secure()
+@description('Admin password for session host VM')
 param adminPassword string
 
 @description('Domain FQDN')
@@ -26,8 +26,8 @@ param domainName string = 'contoso.local'
 @description('Domain Join Username')
 param domainJoinUsername string
 
-@description('Domain Join Password')
 @secure()
+@description('Domain Join Password')
 param domainJoinPassword string
 
 // Optional: NSG for subnet with inbound RDP and outbound virtual network access
@@ -243,9 +243,8 @@ resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = 
       Name: domainName
       OUPath: ''
       User: domainJoinUsername
-      Restart: 'true'
-      Options: '3'
-      JoinDomain: domainName
+      Restart: true
+      Options: 3
       Debug: true
     }
     protectedSettings: {
@@ -253,5 +252,3 @@ resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = 
     }
   }
 }
-
-// Removed AVD agent extension because no registration token is available
