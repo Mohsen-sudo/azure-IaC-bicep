@@ -24,7 +24,7 @@ stages:
         - task: AzureCLI@2
           displayName: 'Deploy Shared Services Bicep'
           inputs:
-            azureSubscription: 'WIF-HubSpokes-Root'
+            azureSubscription: '$(wifServiceConnection)'
             scriptType: 'pscore'
             scriptLocation: 'inlineScript'
             inlineScript: |
