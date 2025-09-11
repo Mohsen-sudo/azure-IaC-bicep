@@ -9,13 +9,10 @@ variables:
   spoke2Subscription: "Azure Sub-B"
   location: "northeurope"
   keyVaultName: "sharedServicesKV-Mohsen"
-  wifServiceConnection: "WIF-HubSpokes-Root"
-  AZURE_SERVICE_CONNECTION: "WIF-HubSpokes-Root" # Add this if needed for ARM task
   domainName: "contoso.local"
   domainSecurityGroup: "AADDSAdmins"
 
 stages:
-
 - stage: SharedServices
   displayName: 'Deploy Shared Services (Hub)'
   jobs:
@@ -27,12 +24,12 @@ stages:
         - task: AzureCLI@2
           displayName: 'Deploy Shared Services Bicep'
           inputs:
-            azureSubscription: '$(wifServiceConnection)'
+            azureSubscription: 'WIF-HubSpokes-Root'
             scriptType: 'pscore'
             scriptLocation: 'inlineScript'
             inlineScript: |
-              az account set --subscription "$(hubSubscription)"
-              az group create --name rg-shared-services --location $(location)
+              az account set --subscription "Azure sub1"
+              az group create --name rg-shared-services --location northeurope
               az deployment group create --resource-group rg-shared-services `
                 --template-file infra/stacks/shared-services/main.bicep --parameters "@infra/stacks/shared-services/main.json" `
                 --only-show-errors `
@@ -48,8 +45,7 @@ stages:
       steps:
         - task: ManualValidation@0
           inputs:
-            notifyUsers: 'boxclean@gmail.com
-'
+            notifyUsers: 'boxclean@gmail.com'
             instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
             timeout: '0'
 
@@ -62,17 +58,26 @@ stages:
       pool:
         name: 'IaC-agent-pool'
       steps:
+        - task: AzureKeyVault@2
+          inputs:
+            azureSubscription: '$(wifServiceConnection)'
+            KeyVaultName: 'sharedServicesKV-Mohsen'
+            SecretsFilter: 'CompanyAAdminUsername,CompanyAAdminPassword'
+            RunAsPreJob: true
         - task: AzureResourceManagerTemplateDeployment@3
           displayName: 'Deploy Company A Bicep (ARM Task)'
           inputs:
-            deploymentScope: 'Resource Group' # 🔹 Changed from Subscription
-            azureResourceManagerConnection: '$(AZURE_SERVICE_CONNECTION)'
+            deploymentScope: 'Resource Group'
+            azureResourceManagerConnection: 'WIF-HubSpokes-Root'
             subscriptionId: 'bc590447-877b-4cb2-9253-6d4aab175a22'
-            resourceGroupName: 'rg-company-a' # 🔹 Added resource group scope
+            resourceGroupName: 'rg-company-a'
             location: 'northeurope'
             templateLocation: 'Linked artifact'
             csmFile: 'infra/stacks/company-a/main.bicep'
             csmParametersFile: 'infra/stacks/company-a/company-a.parameters.json'
+            overrideParameters: >
+              -adminUsername "$(CompanyAAdminUsername)"
+              -adminPassword "$(CompanyAAdminPassword)"
             deploymentMode: 'Incremental'
 
 - stage: CompanyB
@@ -91,8 +96,8 @@ stages:
             scriptType: 'pscore'
             scriptLocation: 'inlineScript'
             inlineScript: |
-              az account set --subscription "$(spoke2Subscription)"
-              az group create --name rg-company-b --location $(location)
+              az account set --subscription "Azure Sub-B"
+              az group create --name rg-company-b --location northeurope
               az deployment group create --resource-group rg-company-b `
                 --template-file infra/stacks/company-b/main.bicep --parameters "@infra/stacks/company-b/company-b.parameters.json" `
                 --only-show-errors `
