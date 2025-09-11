@@ -15,9 +15,6 @@ variables:
 
 stages:
 
-# ------------------------------
-# Stage 1: Deploy Shared Services (Hub)
-# ------------------------------
 - stage: SharedServices
   displayName: 'Deploy Shared Services (Hub)'
   jobs:
@@ -41,9 +38,6 @@ stages:
                 --only-show-errors `
                 --output none
 
-# ------------------------------
-# Stage 2: Manual Approval
-# ------------------------------
 - stage: ManualApproval
   displayName: 'Manual Approval Before Spokes'
   dependsOn: SharedServices
@@ -58,9 +52,6 @@ stages:
             instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
             timeout: '0'
 
-# ------------------------------
-# Stage 3: Deploy Company A (Spoke 1)
-# ------------------------------
 - stage: CompanyA
   displayName: 'Deploy Company A (Spoke 1)'
   dependsOn: ManualApproval
@@ -70,7 +61,6 @@ stages:
       pool:
         name: 'IaC-agent-pool'
       steps:
-        # Fetch secrets via Azure CLI
         - task: AzureCLI@2
           displayName: 'Fetch Company A Secrets from Key Vault'
           inputs:
@@ -81,10 +71,14 @@ stages:
               az account set --subscription "$(hubSubscription)"
               $CompanyAAdminUsername = az keyvault secret show --vault-name $(keyVaultName) --name CompanyAAdminUsername --query value -o tsv
               $CompanyAAdminPassword = az keyvault secret show --vault-name $(keyVaultName) --name CompanyAAdminPassword --query value -o tsv
+              $CompanyADomainJoinUsername = az keyvault secret show --vault-name $(keyVaultName) --name CompanyADomainJoinUsername --query value -o tsv
+              $CompanyADomainJoinPassword = az keyvault secret show --vault-name $(keyVaultName) --name CompanyADomainJoinPassword --query value -o tsv
+
               Write-Host "##vso[task.setvariable variable=CompanyAAdminUsername;issecret=true]$CompanyAAdminUsername"
               Write-Host "##vso[task.setvariable variable=CompanyAAdminPassword;issecret=true]$CompanyAAdminPassword"
+              Write-Host "##vso[task.setvariable variable=CompanyADomainJoinUsername;issecret=true]$CompanyADomainJoinUsername"
+              Write-Host "##vso[task.setvariable variable=CompanyADomainJoinPassword;issecret=true]$CompanyADomainJoinPassword"
 
-        # Deploy Bicep template for Company A
         - task: AzureCLI@2
           displayName: 'Deploy Company A Bicep'
           inputs:
@@ -98,12 +92,10 @@ stages:
                 --template-file infra/stacks/company-a/main.bicep `
                 --parameters "@infra/stacks/company-a/company-a.parameters.json" `
                 --parameters adminUsername="$(CompanyAAdminUsername)" adminPassword="$(CompanyAAdminPassword)" `
+                             domainJoinUsername="$(CompanyADomainJoinUsername)" domainJoinPassword="$(CompanyADomainJoinPassword)" `
                 --only-show-errors `
                 --output none
 
-# ------------------------------
-# Stage 4: Deploy Company B (Spoke 2)
-# ------------------------------
 - stage: CompanyB
   displayName: 'Deploy Company B (Spoke 2)'
   dependsOn: ManualApproval
@@ -113,7 +105,6 @@ stages:
       pool:
         name: 'IaC-agent-pool'
       steps:
-        # Fetch secrets via Azure CLI
         - task: AzureCLI@2
           displayName: 'Fetch Company B Secrets from Key Vault'
           inputs:
@@ -124,10 +115,14 @@ stages:
               az account set --subscription "$(hubSubscription)"
               $CompanyBAdminUsername = az keyvault secret show --vault-name $(keyVaultName) --name CompanyBAdminUsername --query value -o tsv
               $CompanyBAdminPassword = az keyvault secret show --vault-name $(keyVaultName) --name CompanyBAdminPassword --query value -o tsv
+              $CompanyBDomainJoinUsername = az keyvault secret show --vault-name $(keyVaultName) --name CompanyBDomainJoinUsername --query value -o tsv
+              $CompanyBDomainJoinPassword = az keyvault secret show --vault-name $(keyVaultName) --name CompanyBDomainJoinPassword --query value -o tsv
+
               Write-Host "##vso[task.setvariable variable=CompanyBAdminUsername;issecret=true]$CompanyBAdminUsername"
               Write-Host "##vso[task.setvariable variable=CompanyBAdminPassword;issecret=true]$CompanyBAdminPassword"
+              Write-Host "##vso[task.setvariable variable=CompanyBDomainJoinUsername;issecret=true]$CompanyBDomainJoinUsername"
+              Write-Host "##vso[task.setvariable variable=CompanyBDomainJoinPassword;issecret=true]$CompanyBDomainJoinPassword"
 
-        # Deploy Bicep template for Company B
         - task: AzureCLI@2
           displayName: 'Deploy Company B Bicep'
           inputs:
@@ -141,5 +136,6 @@ stages:
                 --template-file infra/stacks/company-b/main.bicep `
                 --parameters "@infra/stacks/company-b/company-b.parameters.json" `
                 --parameters adminUsername="$(CompanyBAdminUsername)" adminPassword="$(CompanyBAdminPassword)" `
+                             domainJoinUsername="$(CompanyBDomainJoinUsername)" domainJoinPassword="$(CompanyBDomainJoinPassword)" `
                 --only-show-errors `
                 --output none
