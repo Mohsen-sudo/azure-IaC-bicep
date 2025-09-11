@@ -132,12 +132,8 @@ resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
     preferredAppGroupType: 'Desktop'
-    # Optional domain join settings
-    if (domainJoinUsername != '') {
-      registrationInfo: {
-        domainJoinUser: domainJoinUsername
-        domainJoinPassword: domainJoinPassword
-      }
+    registrationInfo: {
+      registrationTokenOperation: 'Create'
     }
   }
 }
@@ -152,12 +148,8 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
     preferredAppGroupType: 'Desktop'
-    # Optional domain join settings
-    if (domainJoinUsername != '') {
-      registrationInfo: {
-        domainJoinUser: domainJoinUsername
-        domainJoinPassword: domainJoinPassword
-      }
+    registrationInfo: {
+      registrationTokenOperation: 'Create'
     }
   }
 }
