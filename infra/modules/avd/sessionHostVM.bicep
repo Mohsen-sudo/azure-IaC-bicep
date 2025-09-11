@@ -1,16 +1,75 @@
-param vmName string
-param location string
+@description('Admin username for session host VM')
+param adminUsername string
 
-resource vm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
-  name: vmName
+@description('Admin password for session host VM')
+@secure()
+param adminPassword string
+
+@description('AVD registration token for host pool')
+@secure()
+param registrationToken string
+
+@description('Location for resources')
+param location string = 'northeurope'
+
+@description('Subnet resource ID for VM')
+param subnetId string
+
+resource sessionHostNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
+  name: 'companyA-sessionhost-nic'
   location: location
   properties: {
-    // ... your VM properties ...
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          subnet: { id: subnetId }
+          privateIPAllocationMethod: 'Dynamic'
+        }
+      }
+    ]
   }
 }
 
-resource fslogixInstall 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
-  name: '${vm.name}/FSLogixInstall'
+resource sessionHostVm 'Microsoft.Compute/virtualMachines@2023-03-01' = {
+  name: 'companyA-sessionhost-01'
+  location: location
+  properties: {
+    hardwareProfile: {
+      vmSize: 'Standard_D2s_v3'
+    }
+    osProfile: {
+      computerName: 'companyA-sessionhost-01'
+      adminUsername: adminUsername
+      adminPassword: adminPassword
+      windowsConfiguration: {
+        enableAutomaticUpdates: true
+      }
+      customData: base64('') // optional, for more customization
+    }
+    storageProfile: {
+      imageReference: {
+        publisher: 'MicrosoftWindowsDesktop'
+        offer: 'windows-10'
+        sku: 'win10-21h2-avd'
+        version: 'latest'
+      }
+      osDisk: {
+        createOption: 'FromImage'
+        managedDisk: { storageAccountType: 'Standard_LRS' }
+        diskSizeGB: 128
+      }
+    }
+    networkProfile: {
+      networkInterfaces: [
+        { id: sessionHostNic.id }
+      ]
+    }
+  }
+}
+
+resource avdAgentInstall 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' = {
+  name: '${sessionHostVm.name}/AVDAgentInstall'
   location: location
   properties: {
     publisher: 'Microsoft.Compute'
@@ -19,17 +78,9 @@ resource fslogixInstall 'Microsoft.Compute/virtualMachines/extensions@2022-11-01
     autoUpgradeMinorVersion: true
     settings: {
       fileUris: [
-        // 1. The PowerShell script to execute
-        'https://companyastorage.blob.core.windows.net/fxlogixsetup/Install-FSLogix.ps1?sp=r&st=2025-09-08T17:53:16Z&se=2025-09-09T02:08:16Z&spr=https&sv=2024-11-04&sr=b&sig=u2Wh8UweSswDfS0cs703jXjvbYqPhWGZUhl1dn5b9Ds%3D'
-        // 2. FSLogix Apps installer
-        'https://companyastorage.blob.core.windows.net/fxlogixsetup/FSLogixAppsSetup.exe?sp=r&st=2025-09-08T17:52:53Z&se=2025-09-09T02:07:53Z&spr=https&sv=2024-11-04&sr=b&sig=%2BYV6TKyvJNnZBdzRLLq1ldgyUBkfOdV4Ma3MOt%2BXt8o%3D'
-        // 3. FSLogix Rule Editor installer
-        'https://companyastorage.blob.core.windows.net/fxlogixsetup/FSLogixAppsRuleEditorSetup.exe?sp=r&st=2025-09-08T17:50:24Z&se=2025-09-09T02:05:24Z&spr=https&sv=2024-11-04&sr=b&sig=MNyvK5ZNLO6AOBz%2FJYXFx4GqLhNUoy1det%2B5UxZsF%2BE%3D'
+        'https://raw.githubusercontent.com/Azure/RDS-Templates/master/ARM-wvd-templates/installsessionhostagent.ps1'
       ]
-      commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File Install-FSLogix.ps1'
+      commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File installsessonhostagent.ps1 -RegistrationToken "${registrationToken}"'
     }
   }
-  dependsOn: [
-    vm
-  ]
 }
