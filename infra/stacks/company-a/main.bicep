@@ -55,7 +55,7 @@ resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
   }
 }
 
-// Create CompanyA spoke VNet with ONE subnet for AVD hosts, associate NSG and route table directly in subnet properties
+// Create CompanyA spoke VNet with ONE subnet for AVD hosts, associate NSG and route table
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: 'companyA-avd-vnet'
   location: location
@@ -139,11 +139,10 @@ resource companyAToAddsPeering 'Microsoft.Network/virtualNetworks/virtualNetwork
   }
 }
 
+// ADDS → CompanyA peering (existing VNet)
 resource addsToCompanyAPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
   name: 'adds-to-companyA-peering'
-  parent: {
-    id: addsVnetId
-  }
+  scope: resourceGroup('rg-shared-services') // replace with ADDS VNet RG
   properties: {
     remoteVirtualNetwork: {
       id: vnet.id
