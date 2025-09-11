@@ -250,16 +250,16 @@ resource avdAgent 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
     typeHandlerVersion: '1.10'
     autoUpgradeMinorVersion: true
     settings: {
-      commandToExecute: @'
+      commandToExecute: '
 powershell -ExecutionPolicy Unrestricted -Command "
-$token = ''${registrationToken}''
+$token = '''${registrationToken}'''
 $url = ''https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE2JwUy''
 $agentInstaller = ''C:\avdagent.msi''
 Invoke-WebRequest -Uri $url -OutFile $agentInstaller
-Start-Process msiexec.exe -ArgumentList '/i', $agentInstaller, '/quiet', '/qn', ""REGISTRATIONTOKEN=$token"" -Wait
+Start-Process msiexec.exe -ArgumentList ''/i'', $agentInstaller, ''/quiet'', ''/qn'', ""REGISTRATIONTOKEN=$token"" -Wait
 Remove-Item $agentInstaller
 "
-'@
+'
     }
   }
 }
