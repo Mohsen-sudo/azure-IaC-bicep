@@ -6,14 +6,6 @@
     "vnetAddressPrefix": { "value": "10.2.0.0/16" },
     "subnetAddressPrefix": { "value": "10.2.1.0/24" },
     "storageAccountName": { "value": "companyastorage" },
-    "privateDnsZoneId": { "value": "" },
-    "hubVnetId": { 
-      "value": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet"
-    },
-    "hubVnetRg": { "value": "rg-shared-services" },
-    "addsVnetId": { 
-      "value": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/aadds-vnet"
-    },
-    "addsVnetRg": { "value": "rg-shared-services" }
+    "privateDnsZoneId": { "value": "" }
   }
 }
