@@ -1,94 +1,134 @@
-param adminUsername string
-param location string
-param vnetAddressPrefixes array
-param subnetAddressPrefix string
-param maxSessionHosts int
+@description('Azure region')
+param location string = 'northeurope'
 
-@description('Resource ID of Key Vault containing VM admin password')
-param keyVaultResourceId string
+@description('CompanyB Spoke VNet address prefix')
+param vnetAddressPrefix string = '10.3.0.0/16'
 
-@allowed([
-  'CompanyBAdminPassword'
-  'CompanyAAdminPassword'
-])
-param adminPasswordSecretName string = 'CompanyBAdminPassword'
+@description('Subnet address prefix for the AVD subnet')
+param subnetAddressPrefix string = '10.3.1.0/24'
 
-// Securely fetch the VM admin password from Key Vault at deployment time
-var adminPassword = listSecret('${keyVaultResourceId}/secrets/${adminPasswordSecretName}', '2019-09-01').value
+@description('Storage account name for FSLogix profiles')
+param storageAccountName string = 'companybstorage'
 
-// Deploy VNet
-module vnet '../../modules/networking/vnet.bicep' = {
-  name: 'vnetDeployment'
-  params: {
-    location: location
-    addressPrefixes: vnetAddressPrefixes
-    subnetAddressPrefix: subnetAddressPrefix
-    vnetName: 'vnet-companyB'
+@description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
+param privateDnsZoneId string = ''
+
+// Optional: NSG for subnet
+var nsgRules = [
+  {
+    name: 'AllowRDP'
+    properties: {
+      priority: 1000
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '3389'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: '*'
+      access: 'Allow'
+      direction: 'Inbound'
+    }
+  }
+]
+
+resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
+  name: 'companyB-avd-nsg'
+  location: location
+  properties: {
+    securityRules: nsgRules
   }
 }
 
-// Deploy NSG
-module nsg '../../modules/networking/nsg.bicep' = {
-  name: 'nsgDeployment'
-  params: {
-    location: location
-    nsgName: 'companyB-nsg'
-    customRules: []
+// Optional: Route table for subnet
+var customRoutes = []
+
+resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
+  name: 'companyB-avd-rt'
+  location: location
+  properties: {
+    routes: customRoutes
   }
 }
 
-// Deploy Peering
-module peering '../../modules/networking/peering.bicep' = {
-  name: 'peeringDeployment'
-  params: {
-    vnetName: vnet.outputs.vnetName
-    peerVnetId: '/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet'
-  }
-}
-
-// Deploy Storage Account
-module storage '../../modules/storage/storage.bicep' = {
-  name: 'storageDeployment'
-  params: {
-    location: location
-    storageAccountName: 'companybstorage'
-  }
-}
-
-// Deploy Hostpool (make sure all required params are provided)
-module hostpool '../../modules/avd/hostpool.bicep' = {
-  name: 'hostpoolDeployment'
-  params: {
-    location: location
-    adminUsername: adminUsername
-    adminPassword: adminPassword
-    maxSessionHosts: maxSessionHosts
-    subnetId: vnet.outputs.subnetId
-    dnsServers: [
-      '10.0.20.5'
-      '10.0.20.4'
+// Create CompanyB spoke VNet with ONE subnet for AVD hosts
+resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
+  name: 'companyB-avd-vnet'
+  location: location
+  properties: {
+    addressSpace: {
+      addressPrefixes: [vnetAddressPrefix]
+    }
+    subnets: [
+      {
+        name: 'avd-subnet'
+        properties: {
+          addressPrefix: subnetAddressPrefix
+          networkSecurityGroup: { id: avdNsg.id }
+          routeTable: { id: avdRouteTable.id }
+        }
+      }
     ]
-    storageAccountId: storage.outputs.storageAccountId
-    domainName: 'corp.mohsenlab.local'
-    // companyPrefix, vmSize, vmImagePublisher, etc. will use defaults from module unless you override
   }
 }
 
-// Deploy Workspace
-module workspace '../../modules/avd/workspace.bicep' = {
-  name: 'workspaceDeployment'
-  params: {
-    location: location
-    hostPoolId: hostpool.outputs.hostPoolId
+// Storage Account for FSLogix profiles
+resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: storageAccountName
+  location: location
+  sku: { name: 'Standard_LRS' }
+  kind: 'StorageV2'
+  properties: {}
+}
+
+// Private Endpoint for Azure Files (FSLogix)
+resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (privateDnsZoneId != '') {
+  name: 'companyB-fslogix-pe'
+  location: location
+  properties: {
+    subnet: { id: vnet.properties.subnets[0].id }
+    privateLinkServiceConnections: [
+      {
+        name: 'fslogix-files'
+        properties: {
+          privateLinkServiceId: storage.id
+          groupIds: ['file']
+          privateLinkServiceConnectionState: {
+            status: 'Approved'
+            description: 'Auto-approved'
+            actionsRequired: ''
+          }
+        }
+      }
+    ]
+    customDnsConfigs: [
+      {
+        fqdn: 'privatelink.file.${environment().suffixes.storage}'
+      }
+    ]
   }
 }
 
-// --- Debug outputs (no secrets!) ---
-output kvResourceIdDebug string = keyVaultResourceId
-output kvNameDebug string = last(split(keyVaultResourceId, '/'))
-output adminPasswordSecretNameDebug string = adminPasswordSecretName
-output vnetName string = vnet.outputs.vnetName
-output subnetId string = vnet.outputs.subnetId
-output storageAccountId string = storage.outputs.storageAccountId
-output hostPoolId string = hostpool.outputs.hostPoolId
-output workspaceId string = workspace.outputs.workspaceId
+// Example AVD Host Pool - FIRST
+resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyB-avd-hostpool01'
+  location: location
+  properties: {
+    friendlyName: 'CompanyB-HostPool01'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
+  }
+}
+
+// Second AVD Host Pool - placed immediately after the first
+resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyB-avd-hostpool02'
+  location: location
+  properties: {
+    friendlyName: 'CompanyB-HostPool02'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
+  }
+}
