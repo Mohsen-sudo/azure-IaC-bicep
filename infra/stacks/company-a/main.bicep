@@ -4,6 +4,9 @@ param location string = 'northeurope'
 @description('CompanyA Spoke VNet address prefix')
 param vnetAddressPrefix string = '10.1.0.0/16'
 
+@description('Subnet address prefix for the AVD subnet')
+param subnetAddressPrefix string = '10.1.1.0/24'
+
 @description('Storage account name for FSLogix profiles')
 param storageAccountName string = 'companyastorage'
 
