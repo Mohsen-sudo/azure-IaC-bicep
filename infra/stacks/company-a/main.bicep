@@ -30,10 +30,6 @@ param domainJoinUsername string
 @secure()
 param domainJoinPassword string
 
-@description('AVD Host Pool registration token')
-@secure()
-param registrationToken string
-
 // Optional: NSG for subnet with inbound RDP and outbound virtual network access
 var nsgRules = [
   {
@@ -138,19 +134,21 @@ resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' 
 
 // Link PE to private DNS zone
 resource fslogixDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-05-01' = if (privateDnsZoneId != '') {
-  name: 'dnsGroup'
+  name: 'filesDnsGroup'
   parent: fslogixPrivateEndpoint
   properties: {
     privateDnsZoneConfigs: [
       {
         name: 'filesDnsConfig'
-        privateDnsZoneId: privateDnsZoneId
+        properties: {
+          privateDnsZoneId: privateDnsZoneId
+        }
       }
     ]
   }
 }
 
-// Example AVD Host Pool - FIRST
+// Example AVD Host Pools
 resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyA-avd-hostpool01'
   location: location
@@ -163,7 +161,6 @@ resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
   }
 }
 
-// Second AVD Host Pool
 resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyA-avd-hostpool02'
   location: location
@@ -210,7 +207,7 @@ resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
       adminPassword: adminPassword
       windowsConfiguration: {
         enableAutomaticUpdates: true
-        provisionVmAgent: true
+        provisionVMAgent: true
       }
     }
     networkProfile: {
@@ -233,10 +230,10 @@ resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
   }
 }
 
-// Domain Join Extension - more robust
+// Domain Join Extension
 resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
-  name: '${avdVm.name}/joindomain'
-  location: location
+  name: 'joindomain'
+  parent: avdVm
   properties: {
     publisher: 'Microsoft.Compute'
     type: 'JsonADDomainExtension'
@@ -257,25 +254,4 @@ resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = 
   }
 }
 
-// AVD Agent Registration Extension (Custom Script)
-resource avdAgent 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
-  name: '${avdVm.name}/avdagent'
-  location: location
-  properties: {
-    publisher: 'Microsoft.Compute'
-    type: 'CustomScriptExtension'
-    typeHandlerVersion: '1.10'
-    autoUpgradeMinorVersion: true
-    settings: {
-      commandToExecute: '''
-powershell -ExecutionPolicy Unrestricted -Command ^
-$token = "${registrationToken}"; ^
-$url = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE2JwUy"; ^
-$agentInstaller = "C:\avdagent.msi"; ^
-Invoke-WebRequest -Uri $url -OutFile $agentInstaller; ^
-Start-Process msiexec.exe -ArgumentList "/i",$agentInstaller,"/quiet","/qn","REGISTRATIONTOKEN=$token" -Wait; ^
-Remove-Item $agentInstaller
-'''
-    }
-  }
-}
+// Removed AVD agent extension because no registration token is available
