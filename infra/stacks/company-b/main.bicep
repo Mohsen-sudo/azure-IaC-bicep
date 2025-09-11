@@ -1,14 +1,14 @@
 @description('Azure region')
 param location string = 'northeurope'
 
-@description('CompanyB Spoke VNet address prefix')
-param vnetAddressPrefix string = '10.3.0.0/16'
+@description('CompanyA Spoke VNet address prefix')
+param vnetAddressPrefix string = '10.2.0.0/16'
 
 @description('Subnet address prefix for the AVD subnet')
-param subnetAddressPrefix string = '10.3.1.0/24'
+param subnetAddressPrefix string = '10.2.1.0/24'
 
 @description('Storage account name for FSLogix profiles')
-param storageAccountName string = 'companybstorage'
+param storageAccountName string = 'companyastorage'
 
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
@@ -16,19 +16,21 @@ param privateDnsZoneId string = ''
 @description('Admin username for session host VM')
 param adminUsername string
 
-@description('Admin password for session host VM')
 @secure()
+@description('Admin password for session host VM')
 param adminPassword string
 
-// Optional domain join credentials
-@description('Domain join username (optional)')
-param domainJoinUsername string = ''
+@description('Domain FQDN')
+param domainName string = 'contoso.local'
 
-@description('Domain join password (optional)')
+@description('Domain Join Username')
+param domainJoinUsername string
+
 @secure()
-param domainJoinPassword string = ''
+@description('Domain Join Password')
+param domainJoinPassword string
 
-// Optional: NSG for subnet
+// NSG rules
 var nsgRules = [
   {
     name: 'AllowRDP'
@@ -43,30 +45,43 @@ var nsgRules = [
       direction: 'Inbound'
     }
   }
+  {
+    name: 'AllowAVDOutbound'
+    properties: {
+      priority: 2000
+      protocol: '*'
+      sourcePortRange: '*'
+      destinationPortRange: '*'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+      access: 'Allow'
+      direction: 'Outbound'
+    }
+  }
 ]
 
+// Optional: Route table
+var customRoutes = []
+
 resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
-  name: 'companyB-avd-nsg'
+  name: 'companyA-avd-nsg'
   location: location
   properties: {
     securityRules: nsgRules
   }
 }
 
-// Optional: Route table for subnet
-var customRoutes = []
-
 resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
-  name: 'companyB-avd-rt'
+  name: 'companyA-avd-rt'
   location: location
   properties: {
     routes: customRoutes
   }
 }
 
-// Create CompanyB spoke VNet with ONE subnet for AVD hosts
+// VNet + subnet
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
-  name: 'companyB-avd-vnet'
+  name: 'companyA-avd-vnet'
   location: location
   properties: {
     addressSpace: {
@@ -85,7 +100,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   }
 }
 
-// Storage Account for FSLogix profiles
+// Storage Account
 resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
   location: location
@@ -94,9 +109,9 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   properties: {}
 }
 
-// Private Endpoint for Azure Files (FSLogix)
+// Private Endpoint for FSLogix
 resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (privateDnsZoneId != '') {
-  name: 'companyB-fslogix-pe'
+  name: 'companyA-fslogix-pe'
   location: location
   properties: {
     subnet: { id: vnet.properties.subnets[0].id }
@@ -114,42 +129,124 @@ resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' 
         }
       }
     ]
-    customDnsConfigs: [
+  }
+}
+
+// Link PE to Private DNS Zone
+resource fslogixDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-05-01' = if (privateDnsZoneId != '') {
+  name: 'filesDnsGroup'
+  parent: fslogixPrivateEndpoint
+  properties: {
+    privateDnsZoneConfigs: [
       {
-        fqdn: 'privatelink.file.${environment().suffixes.storage}'
+        name: 'filesDnsConfig'
+        properties: {
+          privateDnsZoneId: privateDnsZoneId
+        }
       }
     ]
   }
 }
 
-// Example AVD Host Pool - FIRST
+// AVD Host Pools
 resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
-  name: 'companyB-avd-hostpool01'
+  name: 'companyA-avd-hostpool01'
   location: location
   properties: {
-    friendlyName: 'CompanyB-HostPool01'
+    friendlyName: 'CompanyA-HostPool01'
     hostPoolType: 'Pooled'
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
     preferredAppGroupType: 'Desktop'
-    registrationInfo: {
-      registrationTokenOperation: 'Create'
+  }
+}
+
+resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyA-avd-hostpool02'
+  location: location
+  properties: {
+    friendlyName: 'CompanyA-HostPool02'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
+  }
+}
+
+// NIC
+resource avdNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
+  name: 'companyA-avd-vm01-nic'
+  location: location
+  properties: {
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          subnet: { id: vnet.properties.subnets[0].id }
+          privateIPAllocationMethod: 'Dynamic'
+        }
+      }
+    ]
+    networkSecurityGroup: { id: avdNsg.id }
+  }
+}
+
+// Session Host VM
+resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
+  name: 'compA-vm01'
+  location: location
+  properties: {
+    hardwareProfile: {
+      vmSize: 'Standard_D2s_v3'
+    }
+    osProfile: {
+      computerName: 'companyA-avd-vm01'
+      adminUsername: adminUsername
+      adminPassword: adminPassword
+      windowsConfiguration: {
+        enableAutomaticUpdates: true
+        provisionVMAgent: true
+      }
+    }
+    networkProfile: {
+      networkInterfaces: [
+        { id: avdNic.id }
+      ]
+    }
+    storageProfile: {
+      imageReference: {
+        publisher: 'MicrosoftWindowsDesktop'
+        offer: 'windows-10'
+        sku: 'win10-21h2-avd'
+        version: 'latest'
+      }
+      osDisk: {
+        createOption: 'FromImage'
+        managedDisk: { storageAccountType: 'Standard_LRS' }
+      }
     }
   }
 }
 
-// Second AVD Host Pool - placed immediately after the first
-resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
-  name: 'companyB-avd-hostpool02'
-  location: location
+// Domain Join Extension
+resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
+  name: 'joindomain'
+  parent: avdVm
   properties: {
-    friendlyName: 'CompanyB-HostPool02'
-    hostPoolType: 'Pooled'
-    validationEnvironment: false
-    loadBalancerType: 'BreadthFirst'
-    preferredAppGroupType: 'Desktop'
-    registrationInfo: {
-      registrationTokenOperation: 'Create'
+    publisher: 'Microsoft.Compute'
+    type: 'JsonADDomainExtension'
+    typeHandlerVersion: '1.3'
+    autoUpgradeMinorVersion: true
+    settings: {
+      Name: domainName
+      OUPath: ''
+      User: domainJoinUsername
+      Restart: 'true'
+      Options: '3'
+      Debug: 'true'
+    }
+    protectedSettings: {
+      Password: domainJoinPassword
     }
   }
 }
