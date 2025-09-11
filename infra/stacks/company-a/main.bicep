@@ -179,7 +179,7 @@ resource avdNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
 
 // Session Host VM for AVD
 resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
-  name: 'companyA-avd-vm01'
+  name: 'compA-vm01'
   location: location
   properties: {
     hardwareProfile: {
