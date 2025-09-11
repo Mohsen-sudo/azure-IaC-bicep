@@ -169,7 +169,7 @@ resource sessionHostVM 'Microsoft.Compute/virtualMachines@2022-08-01' = {
       vmSize: 'Standard_D2s_v3'
     }
     osProfile: {
-      computerName: 'companyA-sessionhost-01'
+      computerName: 'avd-a'
       adminUsername: adminUsername
       adminPassword: adminPassword
       windowsConfiguration: {
