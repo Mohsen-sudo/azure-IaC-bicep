@@ -1,216 +1,145 @@
-@description('Azure region')
-param location string = 'northeurope'
+trigger:
+  branches:
+    include:
+      - main
 
-@description('CompanyA Spoke VNet address prefix')
-param vnetAddressPrefix string = '10.2.0.0/16'
+variables:
+  hubSubscription: "Azure sub1"
+  spoke1Subscription: "Azure Sub-A"
+  spoke2Subscription: "Azure Sub-B"
+  location: "northeurope"
+  keyVaultName: "sharedServicesKV-Mohsen"
+  wifServiceConnection: "WIF-HubSpokes-Root"
+  AZURE_SERVICE_CONNECTION: "WIF-HubSpokes-Root"
+  domainName: "contoso.local"
+  domainSecurityGroup: "AADDSAdmins"
 
-@description('Subnet address prefix for the AVD subnet')
-param subnetAddressPrefix string = '10.2.1.0/24'
+stages:
+# ----------------------------------------------------------------------
+# Stage 1 - Deploy Hub
+# ----------------------------------------------------------------------
+- stage: SharedServices
+  displayName: 'Deploy Shared Services (Hub)'
+  jobs:
+    - job: DeploySharedServices
+      displayName: 'Deploy Hub Resources'
+      pool:
+        name: 'IaC-agent-pool'
+      steps:
+        - task: AzureCLI@2
+          displayName: 'Deploy Shared Services Bicep'
+          inputs:
+            azureSubscription: '$(wifServiceConnection)'
+            scriptType: 'pscore'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              az account set --subscription "$(hubSubscription)"
+              az group create --name rg-shared-services --location $(location)
+              az deployment group create --resource-group rg-shared-services `
+                --template-file infra/stacks/shared-services/main.bicep `
+                --parameters "@infra/stacks/shared-services/main.json" `
+                --only-show-errors --output none
 
-@description('Storage account name for FSLogix profiles')
-param storageAccountName string = 'companyastorage'
+# ----------------------------------------------------------------------
+# Stage 2 - Manual Approval
+# ----------------------------------------------------------------------
+- stage: ManualApproval
+  displayName: 'Manual Approval Before Spokes'
+  dependsOn: SharedServices
+  jobs:
+    - job: WaitForApproval
+      displayName: 'Wait for Manual Approval'
+      pool: server
+      steps:
+        - task: ManualValidation@0
+          inputs:
+            notifyUsers: 'boxclean@gmail.com'
+            instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
+            timeout: '0'
 
-@description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
-param privateDnsZoneId string = ''
+# ----------------------------------------------------------------------
+# Stage 3 - Deploy Company A (Spoke 1)
+# ----------------------------------------------------------------------
+- stage: CompanyA
+  displayName: 'Deploy Company A (Spoke 1)'
+  dependsOn: ManualApproval
+  jobs:
+    - job: DeployCompanyA
+      displayName: 'Deploy Company A Resources'
+      pool:
+        name: 'IaC-agent-pool'
+      steps:
+        # Fetch secrets from Hub Key Vault
+        - task: AzureCLI@2
+          displayName: Fetch Company A secrets from Key Vault
+          inputs:
+            azureSubscription: '$(wifServiceConnection)'
+            scriptType: pscore
+            scriptLocation: inlineScript
+            inlineScript: |
+              echo "Fetching Company A secrets..."
+              $username = az keyvault secret show --vault-name "$(keyVaultName)" --name "CompanyAAdminUsername" --query value -o tsv
+              $password = az keyvault secret show --vault-name "$(keyVaultName)" --name "CompanyAAdminPassword" --query value -o tsv
 
-@description('Admin username for session host VM')
-param adminUsername string
+              echo "##vso[task.setvariable variable=CompanyAAdminUsername;issecret=true]$username"
+              echo "##vso[task.setvariable variable=CompanyAAdminPassword;issecret=true]$password"
 
-@description('Admin password for session host VM')
-@secure()
-param adminPassword string
+        # Deploy Company A resources
+        - task: AzureResourceManagerTemplateDeployment@3
+          displayName: 'Deploy Company A Bicep (ARM Task)'
+          inputs:
+            deploymentScope: 'Resource Group'
+            azureResourceManagerConnection: '$(AZURE_SERVICE_CONNECTION)'
+            subscriptionId: 'bc590447-877b-4cb2-9253-6d4aab175a22'
+            resourceGroupName: 'rg-company-a'
+            location: '$(location)'
+            templateLocation: 'Linked artifact'
+            csmFile: 'infra/stacks/company-a/main.bicep'
+            csmParametersFile: 'infra/stacks/company-a/company-a.parameters.json'
+            overrideParameters: >
+              -adminUsername "$(CompanyAAdminUsername)"
+              -adminPassword "$(CompanyAAdminPassword)"
+            deploymentMode: 'Incremental'
 
-// Optional: NSG for subnet
-var nsgRules = [
-  {
-    name: 'AllowRDP'
-    properties: {
-      priority: 1000
-      protocol: 'Tcp'
-      sourcePortRange: '*'
-      destinationPortRange: '3389'
-      sourceAddressPrefix: '*'
-      destinationAddressPrefix: '*'
-      access: 'Allow'
-      direction: 'Inbound'
-    }
-  }
-]
+# ----------------------------------------------------------------------
+# Stage 4 - Deploy Company B (Spoke 2)
+# ----------------------------------------------------------------------
+- stage: CompanyB
+  displayName: 'Deploy Company B (Spoke 2)'
+  dependsOn: ManualApproval
+  jobs:
+    - job: DeployCompanyB
+      displayName: 'Deploy Company B Resources'
+      pool:
+        name: 'IaC-agent-pool'
+      steps:
+        # Fetch secrets from Hub Key Vault
+        - task: AzureCLI@2
+          displayName: Fetch Company B secrets from Key Vault
+          inputs:
+            azureSubscription: '$(wifServiceConnection)'
+            scriptType: pscore
+            scriptLocation: inlineScript
+            inlineScript: |
+              echo "Fetching Company B secrets..."
+              $username = az keyvault secret show --vault-name "$(keyVaultName)" --name "CompanyBAdminUsername" --query value -o tsv
+              $password = az keyvault secret show --vault-name "$(keyVaultName)" --name "CompanyBAdminPassword" --query value -o tsv
 
-resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
-  name: 'companyA-avd-nsg'
-  location: location
-  properties: {
-    securityRules: nsgRules
-  }
-}
+              echo "##vso[task.setvariable variable=CompanyBAdminUsername;issecret=true]$username"
+              echo "##vso[task.setvariable variable=CompanyBAdminPassword;issecret=true]$password"
 
-// Optional: Route table for subnet
-var customRoutes = []
-
-resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
-  name: 'companyA-avd-rt'
-  location: location
-  properties: {
-    routes: customRoutes
-  }
-}
-
-// Create CompanyA spoke VNet with ONE subnet for AVD hosts
-resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
-  name: 'companyA-avd-vnet'
-  location: location
-  properties: {
-    addressSpace: {
-      addressPrefixes: [vnetAddressPrefix]
-    }
-    subnets: [
-      {
-        name: 'avd-subnet'
-        properties: {
-          addressPrefix: subnetAddressPrefix
-          networkSecurityGroup: { id: avdNsg.id }
-          routeTable: { id: avdRouteTable.id }
-        }
-      }
-    ]
-  }
-}
-
-// Storage Account for FSLogix profiles
-resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: storageAccountName
-  location: location
-  sku: { name: 'Standard_LRS' }
-  kind: 'StorageV2'
-  properties: {}
-}
-
-// Private Endpoint for Azure Files (FSLogix)
-resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (privateDnsZoneId != '') {
-  name: 'companyA-fslogix-pe'
-  location: location
-  properties: {
-    subnet: { id: vnet.properties.subnets[0].id }
-    privateLinkServiceConnections: [
-      {
-        name: 'fslogix-files'
-        properties: {
-          privateLinkServiceId: storage.id
-          groupIds: ['file']
-          privateLinkServiceConnectionState: {
-            status: 'Approved'
-            description: 'Auto-approved'
-            actionsRequired: ''
-          }
-        }
-      }
-    ]
-    customDnsConfigs: [
-      {
-        fqdn: 'privatelink.file.${environment().suffixes.storage}'
-      }
-    ]
-  }
-}
-
-// Example AVD Host Pool - FIRST
-resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
-  name: 'companyA-avd-hostpool01'
-  location: location
-  properties: {
-    friendlyName: 'CompanyA-HostPool01'
-    hostPoolType: 'Pooled'
-    validationEnvironment: false
-    loadBalancerType: 'BreadthFirst'
-    preferredAppGroupType: 'Desktop'
-  }
-}
-
-// Second AVD Host Pool - placed immediately after the first
-resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
-  name: 'companyA-avd-hostpool02'
-  location: location
-  properties: {
-    friendlyName: 'CompanyA-HostPool02'
-    hostPoolType: 'Pooled'
-    validationEnvironment: false
-    loadBalancerType: 'BreadthFirst'
-    preferredAppGroupType: 'Desktop'
-  }
-}
-
-// NIC for session host VM
-resource sessionHostNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
-  name: 'companyA-sessionhost-01-nic'
-  location: location
-  properties: {
-    ipConfigurations: [
-      {
-        name: 'ipconfig1'
-        properties: {
-          subnet: { id: vnet.properties.subnets[0].id }
-          privateIPAllocationMethod: 'Dynamic'
-        }
-      }
-    ]
-  }
-}
-
-// Session host VM (AAD-joined)
-resource sessionHostVM 'Microsoft.Compute/virtualMachines@2022-08-01' = {
-  name: 'companyA-sessionhost-01'
-  location: location
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    hardwareProfile: {
-      vmSize: 'Standard_D2s_v3'
-    }
-    osProfile: {
-      computerName: 'avd-a'
-      adminUsername: adminUsername
-      adminPassword: adminPassword
-      windowsConfiguration: {
-        provisionVMAgent: true
-        enableAutomaticUpdates: true
-        // To enable AAD join, you need to use VM extension (see below)
-      }
-    }
-    storageProfile: {
-      imageReference: {
-        publisher: 'MicrosoftWindowsDesktop'
-        offer: 'windows-10'
-        sku: 'win10-21h2-avd'
-        version: 'latest'
-      }
-      osDisk: {
-        createOption: 'FromImage'
-        managedDisk: { storageAccountType: 'Standard_LRS' }
-        diskSizeGB: 128
-      }
-    }
-    networkProfile: {
-      networkInterfaces: [
-        { id: sessionHostNic.id }
-      ]
-    }
-  }
-}
-
-// Azure AD Join using VM Extension (required for AAD join)
-resource aadJoinExtension 'Microsoft.Compute/virtualMachines/extensions@2022-08-01' = {
-  name: 'companyA-sessionhost-01/aadlogin'
-  location: location
-  properties: {
-    publisher: 'Microsoft.Azure.ActiveDirectory'
-    type: 'AADLoginForWindows'
-    typeHandlerVersion: '1.0'
-    autoUpgradeMinorVersion: true
-    settings: {}
-  }
-  dependsOn: [
-    sessionHostVM
-  ]
-}
+        # Deploy Company B resources
+        - task: AzureCLI@2
+          displayName: 'Deploy Company B Bicep'
+          inputs:
+            azureSubscription: '$(wifServiceConnection)'
+            scriptType: 'pscore'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              az account set --subscription "$(spoke2Subscription)"
+              az group create --name rg-company-b --location $(location)
+              az deployment group create --resource-group rg-company-b `
+                --template-file infra/stacks/company-b/main.bicep `
+                --parameters "@infra/stacks/company-b/company-b.parameters.json" `
+                --parameters adminUsername="$(CompanyBAdminUsername)" adminPassword="$(CompanyBAdminPassword)" `
+                --only-show-errors --output none
