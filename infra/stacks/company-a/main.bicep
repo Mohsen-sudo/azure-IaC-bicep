@@ -70,7 +70,7 @@ stages:
         name: 'IaC-agent-pool'
       steps:
         # Fetch secrets from Hub Key Vault
-        - task: AzureCLI@2
+        - task: AzureKeyVault@2
           displayName: Fetch Company A secrets from Key Vault
           inputs:
             azureSubscription: '$(wifServiceConnection)'
