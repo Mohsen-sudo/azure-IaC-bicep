@@ -34,7 +34,7 @@ param domainJoinPassword string
 @secure()
 param registrationToken string
 
-// Optional: NSG for subnet
+// Optional: NSG for subnet with inbound RDP and outbound virtual network access
 var nsgRules = [
   {
     name: 'AllowRDP'
@@ -49,7 +49,23 @@ var nsgRules = [
       direction: 'Inbound'
     }
   }
+  {
+    name: 'AllowAVDOutbound'
+    properties: {
+      priority: 2000
+      protocol: '*'
+      sourcePortRange: '*'
+      destinationPortRange: '*'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: 'VirtualNetwork'
+      access: 'Allow'
+      direction: 'Outbound'
+    }
+  }
 ]
+
+// Optional: Route table for subnet
+var customRoutes = []
 
 resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
   name: 'companyA-avd-nsg'
@@ -58,9 +74,6 @@ resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
     securityRules: nsgRules
   }
 }
-
-// Optional: Route table for subnet
-var customRoutes = []
 
 resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
   name: 'companyA-avd-rt'
@@ -120,9 +133,18 @@ resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' 
         }
       }
     ]
-    customDnsConfigs: [
+  }
+}
+
+// Link PE to private DNS zone
+resource fslogixDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-05-01' = if (privateDnsZoneId != '') {
+  name: 'dnsGroup'
+  parent: fslogixPrivateEndpoint
+  properties: {
+    privateDnsZoneConfigs: [
       {
-        fqdn: 'privatelink.file.${environment().suffixes.storage}'
+        name: 'filesDnsConfig'
+        privateDnsZoneId: privateDnsZoneId
       }
     ]
   }
@@ -141,7 +163,7 @@ resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
   }
 }
 
-// Second AVD Host Pool - placed immediately after the first
+// Second AVD Host Pool
 resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyA-avd-hostpool02'
   location: location
@@ -154,7 +176,7 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
   }
 }
 
-// ------ SESSION HOST VM SECTION STARTS HERE ------
+// ------ SESSION HOST VM SECTION ------
 
 // Network Interface for VM
 resource avdNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
@@ -165,15 +187,12 @@ resource avdNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
       {
         name: 'ipconfig1'
         properties: {
-          subnet: {
-            id: vnet.properties.subnets[0].id
-          }
+          subnet: { id: vnet.properties.subnets[0].id }
+          privateIPAllocationMethod: 'Dynamic'
         }
       }
     ]
-    networkSecurityGroup: {
-      id: avdNsg.id
-    }
+    networkSecurityGroup: { id: avdNsg.id }
   }
 }
 
@@ -196,9 +215,7 @@ resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
     }
     networkProfile: {
       networkInterfaces: [
-        {
-          id: avdNic.id
-        }
+        { id: avdNic.id }
       ]
     }
     storageProfile: {
@@ -210,15 +227,13 @@ resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
       }
       osDisk: {
         createOption: 'FromImage'
-        managedDisk: {
-          storageAccountType: 'Standard_LRS'
-        }
+        managedDisk: { storageAccountType: 'Standard_LRS' }
       }
     }
   }
 }
 
-// Domain Join Extension
+// Domain Join Extension - more robust
 resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
   name: '${avdVm.name}/joindomain'
   location: location
@@ -228,14 +243,16 @@ resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = 
     typeHandlerVersion: '1.3'
     autoUpgradeMinorVersion: true
     settings: {
-      "Name": domainName
-      "OUPath": ""
-      "User": domainJoinUsername
-      "Restart": "true"
-      "Options": "3"
+      Name: domainName
+      OUPath: ''
+      User: domainJoinUsername
+      Restart: 'true'
+      Options: '3'
+      JoinDomain: domainName
+      Debug: true
     }
     protectedSettings: {
-      "Password": domainJoinPassword
+      Password: domainJoinPassword
     }
   }
 }
@@ -250,16 +267,15 @@ resource avdAgent 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
     typeHandlerVersion: '1.10'
     autoUpgradeMinorVersion: true
     settings: {
-      commandToExecute: '
-powershell -ExecutionPolicy Unrestricted -Command "
-$token = '''${registrationToken}'''
-$url = ''https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE2JwUy''
-$agentInstaller = ''C:\avdagent.msi''
-Invoke-WebRequest -Uri $url -OutFile $agentInstaller
-Start-Process msiexec.exe -ArgumentList ''/i'', $agentInstaller, ''/quiet'', ''/qn'', ""REGISTRATIONTOKEN=$token"" -Wait
+      commandToExecute: '''
+powershell -ExecutionPolicy Unrestricted -Command ^
+$token = "${registrationToken}"; ^
+$url = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE2JwUy"; ^
+$agentInstaller = "C:\avdagent.msi"; ^
+Invoke-WebRequest -Uri $url -OutFile $agentInstaller; ^
+Start-Process msiexec.exe -ArgumentList "/i",$agentInstaller,"/quiet","/qn","REGISTRATIONTOKEN=$token" -Wait; ^
 Remove-Item $agentInstaller
-"
-'
+'''
     }
   }
 }
