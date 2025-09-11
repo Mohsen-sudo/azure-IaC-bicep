@@ -34,7 +34,8 @@ stages:
               az account set --subscription "$(hubSubscription)"
               az group create --name rg-shared-services --location $(location)
               az deployment group create --resource-group rg-shared-services `
-                --template-file infra/stacks/shared-services/main.bicep --parameters "@infra/stacks/shared-services/main.json" `
+                --template-file infra/stacks/shared-services/main.bicep `
+                --parameters "@infra/stacks/shared-services/main.json" `
                 --only-show-errors `
                 --output none
 
@@ -48,8 +49,7 @@ stages:
       steps:
         - task: ManualValidation@0
           inputs:
-            notifyUsers: 'boxclean@gmail.com
-'
+            notifyUsers: 'boxclean@gmail.com'
             instructions: 'Please review the Shared Services deployment before proceeding to Spoke deployments.'
             timeout: '0'
 
@@ -62,25 +62,44 @@ stages:
       pool:
         name: 'IaC-agent-pool'
       steps:
-        # Azure Key Vault task added
-        - task: AzureKeyVault@2
+        # 🔑 Fetch secrets from Hub Key Vault
+        - task: AzureCLI@2
+          displayName: 'Fetch Company A Secrets from Key Vault'
           inputs:
             azureSubscription: '$(wifServiceConnection)'
-            KeyVaultName: '$(keyVaultName)'
-            SecretsFilter: 'CompanyAAdminUsername,CompanyAAdminPassword'
-            RunAsPreJob: true
+            scriptType: 'pscore'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              az account set --subscription "$(hubSubscription)"
+
+              $username = az keyvault secret show `
+                --vault-name $(keyVaultName) `
+                --name CompanyAAdminUsername `
+                --query value -o tsv
+
+              $password = az keyvault secret show `
+                --vault-name $(keyVaultName) `
+                --name CompanyAAdminPassword `
+                --query value -o tsv
+
+              echo "##vso[task.setvariable variable=CompanyAAdminUsername;issecret=true]$username"
+              echo "##vso[task.setvariable variable=CompanyAAdminPassword;issecret=true]$password"
+
         - task: AzureResourceManagerTemplateDeployment@3
           displayName: 'Deploy Company A Bicep (ARM Task)'
           inputs:
-            deploymentScope: 'Resource Group' # 🔹 Changed from Subscription
+            deploymentScope: 'Resource Group'
             azureResourceManagerConnection: '$(AZURE_SERVICE_CONNECTION)'
             subscriptionId: 'bc590447-877b-4cb2-9253-6d4aab175a22'
-            resourceGroupName: 'rg-company-a' # 🔹 Added resource group scope
+            resourceGroupName: 'rg-company-a'
             location: 'northeurope'
             templateLocation: 'Linked artifact'
             csmFile: 'infra/stacks/company-a/main.bicep'
             csmParametersFile: 'infra/stacks/company-a/company-a.parameters.json'
             deploymentMode: 'Incremental'
+            overrideParameters: >
+              adminUsername=$(CompanyAAdminUsername)
+              adminPassword=$(CompanyAAdminPassword)
 
 - stage: CompanyB
   displayName: 'Deploy Company B (Spoke 2)'
@@ -101,6 +120,7 @@ stages:
               az account set --subscription "$(spoke2Subscription)"
               az group create --name rg-company-b --location $(location)
               az deployment group create --resource-group rg-company-b `
-                --template-file infra/stacks/company-b/main.bicep --parameters "@infra/stacks/company-b/company-b.parameters.json" `
+                --template-file infra/stacks/company-b/main.bicep `
+                --parameters "@infra/stacks/company-b/company-b.parameters.json" `
                 --only-show-errors `
                 --output none
