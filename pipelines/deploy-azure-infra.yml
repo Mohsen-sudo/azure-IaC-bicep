@@ -63,11 +63,12 @@ stages:
         name: 'IaC-agent-pool'
       steps:
         # Use AzureKeyVault@2 for secrets
-        - task: AzureKeyVault@2
+        - task: AzureCLI@2
           displayName: 'Fetch Company A Secrets from Key Vault'
           inputs:
-            azureSubscription: '$(wifServiceConnection)'
-            KeyVaultName: '$(keyVaultName)'
+            azureSubscription: 'wifServiceConnection'
+            KeyVaultName: '$sharedServicesKV-Mohsen
+'
             SecretsFilter: 'CompanyAAdminUsername,CompanyAAdminPassword'
             RunAsPreJob: true
 
