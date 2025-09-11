@@ -13,6 +13,13 @@ param storageAccountName string = 'companyastorage'
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
 
+@description('Admin username for session host VM')
+param adminUsername string
+
+@description('Admin password for session host VM')
+@secure()
+param adminPassword string
+
 // Optional: NSG for subnet
 var nsgRules = [
   {
@@ -131,4 +138,79 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     loadBalancerType: 'BreadthFirst'
     preferredAppGroupType: 'Desktop'
   }
+}
+
+// NIC for session host VM
+resource sessionHostNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
+  name: 'companyA-sessionhost-01-nic'
+  location: location
+  properties: {
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          subnet: { id: vnet.properties.subnets[0].id }
+          privateIPAllocationMethod: 'Dynamic'
+        }
+      }
+    ]
+  }
+}
+
+// Session host VM (AAD-joined)
+resource sessionHostVM 'Microsoft.Compute/virtualMachines@2022-08-01' = {
+  name: 'companyA-sessionhost-01'
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    hardwareProfile: {
+      vmSize: 'Standard_D2s_v3'
+    }
+    osProfile: {
+      computerName: 'companyA-sessionhost-01'
+      adminUsername: adminUsername
+      adminPassword: adminPassword
+      windowsConfiguration: {
+        provisionVMAgent: true
+        enableAutomaticUpdates: true
+        // To enable AAD join, you need to use VM extension (see below)
+      }
+    }
+    storageProfile: {
+      imageReference: {
+        publisher: 'MicrosoftWindowsDesktop'
+        offer: 'windows-10'
+        sku: 'win10-21h2-avd'
+        version: 'latest'
+      }
+      osDisk: {
+        createOption: 'FromImage'
+        managedDisk: { storageAccountType: 'Standard_LRS' }
+        diskSizeGB: 128
+      }
+    }
+    networkProfile: {
+      networkInterfaces: [
+        { id: sessionHostNic.id }
+      ]
+    }
+  }
+}
+
+// Azure AD Join using VM Extension (required for AAD join)
+resource aadJoinExtension 'Microsoft.Compute/virtualMachines/extensions@2022-08-01' = {
+  name: 'companyA-sessionhost-01/aadlogin'
+  location: location
+  properties: {
+    publisher: 'Microsoft.Azure.ActiveDirectory'
+    type: 'AADLoginForWindows'
+    typeHandlerVersion: '1.0'
+    autoUpgradeMinorVersion: true
+    settings: {}
+  }
+  dependsOn: [
+    sessionHostVM
+  ]
 }
