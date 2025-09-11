@@ -7,21 +7,6 @@ param vnetAddressPrefix string = '10.1.0.0/16'
 @description('Subnet address prefix for AVD hosts')
 param subnetAddressPrefix string = '10.1.1.0/24'
 
-@description('Admin username for session hosts')
-param adminUsername string
-@secure()
-@description('Admin password')
-param adminPassword string
-
-@description('Max session hosts in pool 01')
-param maxSessionHostsPool01 int = 2
-
-@description('Max session hosts in pool 02')
-param maxSessionHostsPool02 int = 2
-
-@description('Short prefix for AVD session host computer name')
-param sessionHostPrefix string = 'cmpA-avd'
-
 @description('Storage account name for FSLogix profiles')
 param storageAccountName string = 'companyastorage'
 
@@ -31,16 +16,43 @@ param privateDnsZoneId string = ''
 @description('Hub VNet resource ID for peering')
 param hubVnetId string
 
-@description('Optional: Deploy NSG')
-param deployNsg bool = true
+// Optional: NSG for subnet
+var nsgRules = [
+  {
+    name: 'AllowRDP'
+    properties: {
+      priority: 1000
+      protocol: 'Tcp'
+      sourcePortRange: '*'
+      destinationPortRange: '3389'
+      sourceAddressPrefix: '*'
+      destinationAddressPrefix: '*'
+      access: 'Allow'
+      direction: 'Inbound'
+    }
+  }
+]
 
-@description('Optional: Deploy custom route table')
-param deployRouteTable bool = false
+resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
+  name: 'companyA-avd-nsg'
+  location: location
+  properties: {
+    securityRules: nsgRules
+  }
+}
 
-@description('Custom routes for the route table (if used)')
-param customRoutes array = []
+// Optional: Route table for subnet
+var customRoutes = []
 
-// Create CompanyA spoke VNet with ONE subnet for AVD hosts
+resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
+  name: 'companyA-avd-rt'
+  location: location
+  properties: {
+    routes: customRoutes
+  }
+}
+
+// Create CompanyA spoke VNet with ONE subnet for AVD hosts, associate NSG and route table directly in subnet properties
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: 'companyA-avd-vnet'
   location: location
@@ -53,75 +65,12 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
         name: 'avd-subnet'
         properties: {
           addressPrefix: subnetAddressPrefix
+          networkSecurityGroup: { id: avdNsg.id }
+          routeTable: { id: avdRouteTable.id }
         }
       }
     ]
   }
-}
-
-// Optional: NSG for subnet
-resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = if (deployNsg) {
-  name: 'companyA-avd-nsg'
-  location: location
-  properties: {
-    securityRules: [
-      // Example: allow RDP from trusted IP (customize as needed)
-      {
-        name: 'AllowRDP'
-        properties: {
-          priority: 1000
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          destinationPortRange: '3389'
-          sourceAddressPrefix: '*'
-          destinationAddressPrefix: '*'
-          access: 'Allow'
-          direction: 'Inbound'
-        }
-      }
-    ]
-  }
-}
-
-// Associate NSG to subnet
-resource subnetNsgAssoc 'Microsoft.Network/virtualNetworks/subnets/networkSecurityGroups@2023-09-01' = if (deployNsg) {
-  name: 'avd-subnet-nsg-assoc'
-  parent: vnet
-  scope: vnet
-  properties: {
-    networkSecurityGroup: {
-      id: avdNsg.id
-    }
-  }
-  dependsOn: [
-    vnet
-    avdNsg
-  ]
-}
-
-// Optional: Route table for subnet
-resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = if (deployRouteTable) {
-  name: 'companyA-avd-rt'
-  location: location
-  properties: {
-    routes: customRoutes
-  }
-}
-
-// Associate route table to subnet
-resource subnetRtAssoc 'Microsoft.Network/virtualNetworks/subnets/routeTables@2023-09-01' = if (deployRouteTable) {
-  name: 'avd-subnet-rt-assoc'
-  parent: vnet
-  scope: vnet
-  properties: {
-    routeTable: {
-      id: avdRouteTable.id
-    }
-  }
-  dependsOn: [
-    vnet
-    avdRouteTable
-  ]
 }
 
 // Storage Account for FSLogix profiles
@@ -155,7 +104,7 @@ resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' 
     ]
     customDnsConfigs: [
       {
-        name: 'privatelink.file.' + environment().suffixes.storage
+        name: 'privatelink.file.${environment().suffixes.storage}'
         properties: {
           privateDnsZoneId: privateDnsZoneId
         }
@@ -176,7 +125,7 @@ resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2
   }
 }
 
-// Example AVD Host Pool 01 (resource reference, you can replace with your AVD module)
+// Example AVD Host Pool 01 (replace with your module if needed)
 resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyA-avd-hostpool01'
   location: location
@@ -184,6 +133,8 @@ resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     friendlyName: 'CompanyA-HostPool01'
     hostPoolType: 'Pooled'
     validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
   }
 }
 
@@ -195,5 +146,7 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     friendlyName: 'CompanyA-HostPool02'
     hostPoolType: 'Pooled'
     validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
   }
 }
