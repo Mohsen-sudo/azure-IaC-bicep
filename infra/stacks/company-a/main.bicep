@@ -139,15 +139,20 @@ resource companyAToAddsPeering 'Microsoft.Network/virtualNetworks/virtualNetwork
   }
 }
 
-// ADDS → CompanyA peering (remote side via peering.bicep module)
+// FIX: Extract resource group name from addsVnetId for module scope
+var addsVnetResourceGroupName = split(addsVnetId, '/')[4]
+
+// FIX: Pass correct parameters to peering module, and correct scope extraction
 module addsToCompanyAModule '../../modules/networking/peering.bicep' = {
   name: 'adds-to-companyA-peering-deploy'
-  scope: resourceGroup(resourceId(addsVnetId, 'Microsoft.Network/virtualNetworks').resourceGroupName)
+  scope: resourceGroup(addsVnetResourceGroupName)
   params: {
-    vnetName: last(split(addsVnetId, '/'))   // extracts VNet name from resourceId
+    localVnetId: addsVnetId
     peerVnetId: vnet.id
+    peeringName: 'adds-to-companyA-peering'
     allowForwardedTraffic: true
     allowGatewayTransit: false
+    useRemoteGateways: false
   }
 }
 
