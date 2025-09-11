@@ -184,3 +184,17 @@ module addsToCompanyAModule '../../modules/networking/peering.bicep' = {
     useRemoteGateways: false
   }
 }
+
+// Hub → CompanyA peering (remote side via peering.bicep module, placed last)
+module hubToCompanyAModule '../../modules/networking/peering.bicep' = {
+  name: 'hub-to-companyA-peering'
+  scope: resourceGroup(hubVnetRg) // Hub RG, passed in parameter
+  params: {
+    localVnetId: hubVnetId // Hub VNet (local in remote RG)
+    peerVnetId: vnet.id    // CompanyA VNet (remote)
+    peeringName: 'hub-to-companyA-peering'
+    allowForwardedTraffic: true
+    allowGatewayTransit: false
+    useRemoteGateways: false
+  }
+}
