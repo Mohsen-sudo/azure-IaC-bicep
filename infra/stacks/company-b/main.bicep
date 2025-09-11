@@ -20,6 +20,14 @@ param adminUsername string
 @secure()
 param adminPassword string
 
+// Optional domain join credentials
+@description('Domain join username (optional)')
+param domainJoinUsername string = ''
+
+@description('Domain join password (optional)')
+@secure()
+param domainJoinPassword string = ''
+
 // Optional: NSG for subnet
 var nsgRules = [
   {
@@ -124,6 +132,13 @@ resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
     preferredAppGroupType: 'Desktop'
+    # Optional domain join settings
+    if (domainJoinUsername != '') {
+      registrationInfo: {
+        domainJoinUser: domainJoinUsername
+        domainJoinPassword: domainJoinPassword
+      }
+    }
   }
 }
 
@@ -137,5 +152,12 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
     preferredAppGroupType: 'Desktop'
+    # Optional domain join settings
+    if (domainJoinUsername != '') {
+      registrationInfo: {
+        domainJoinUser: domainJoinUsername
+        domainJoinPassword: domainJoinPassword
+      }
+    }
   }
 }
