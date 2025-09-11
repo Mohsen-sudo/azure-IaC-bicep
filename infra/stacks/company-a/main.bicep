@@ -16,6 +16,9 @@ param privateDnsZoneId string = ''
 @description('Hub VNet resource ID for peering')
 param hubVnetId string
 
+@description('ADDS VNet resource ID for peering with Company A')
+param addsVnetId string
+
 // Optional: NSG for subnet
 var nsgRules = [
   {
@@ -104,17 +107,14 @@ resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' 
     ]
     customDnsConfigs: [
       {
-        name: 'privatelink.file.${environment().suffixes.storage}'
-        properties: {
-          privateDnsZoneId: privateDnsZoneId
-        }
+        fqdn: 'privatelink.file.${environment().suffixes.storage}'
       }
     ]
   }
 }
 
 // VNet Peering to Hub
-resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
+resource vnetPeeringHub 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
   name: 'companyA-to-hub-peering'
   parent: vnet
   properties: {
@@ -125,7 +125,36 @@ resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2
   }
 }
 
-// Example AVD Host Pool 01 (replace with your module if needed)
+// VNet Peering between CompanyA and ADDS
+resource companyAToAddsPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
+  name: 'companyA-to-adds-peering'
+  parent: vnet
+  properties: {
+    remoteVirtualNetwork: {
+      id: addsVnetId
+    }
+    allowVirtualNetworkAccess: true
+    allowForwardedTraffic: true
+    allowGatewayTransit: false
+  }
+}
+
+resource addsToCompanyAPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
+  name: 'adds-to-companyA-peering'
+  parent: {
+    id: addsVnetId
+  }
+  properties: {
+    remoteVirtualNetwork: {
+      id: vnet.id
+    }
+    allowVirtualNetworkAccess: true
+    allowForwardedTraffic: true
+    allowGatewayTransit: false
+  }
+}
+
+// Example AVD Host Pool 01
 resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyA-avd-hostpool01'
   location: location
