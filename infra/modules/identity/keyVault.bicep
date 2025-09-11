@@ -17,4 +17,4 @@ resource kv 'Microsoft.KeyVault/vaults@2024-04-01-preview' = {
   }
 }
 
-output keyVaultId string = kv.id
+output keyVaultId string = kv.i
