@@ -9,8 +9,6 @@ variables:
   spoke2Subscription: "Azure Sub-B"
   location: "northeurope"
   keyVaultName: "sharedServicesKV-Mohsen"
-  wifServiceConnection: "WIF-HubSpokes-Root"
-  AZURE_SERVICE_CONNECTION: "WIF-HubSpokes-Root"
   domainName: "contoso.local"
   domainSecurityGroup: "AADDSAdmins"
 
@@ -26,12 +24,12 @@ stages:
         - task: AzureCLI@2
           displayName: 'Deploy Shared Services Bicep'
           inputs:
-            azureSubscription: '$(wifServiceConnection)'
+            azureSubscription: 'WIF-HubSpokes-Root'
             scriptType: 'pscore'
             scriptLocation: 'inlineScript'
             inlineScript: |
-              az account set --subscription "$(hubSubscription)"
-              az group create --name rg-shared-services --location $(location)
+              az account set --subscription "Azure sub1"
+              az group create --name rg-shared-services --location northeurope
               az deployment group create --resource-group rg-shared-services `
                 --template-file infra/stacks/shared-services/main.bicep --parameters "@infra/stacks/shared-services/main.json" `
                 --only-show-errors `
@@ -62,15 +60,15 @@ stages:
       steps:
         - task: AzureKeyVault@2
           inputs:
-            azureSubscription: '$(wifServiceConnection)'
-            KeyVaultName: '$(keyVaultName)'
+            azureSubscription: 'WIF-HubSpokes-Root'
+            KeyVaultName: 'sharedServicesKV-Mohsen'
             SecretsFilter: 'CompanyAAdminUsername,CompanyAAdminPassword'
             RunAsPreJob: true
         - task: AzureResourceManagerTemplateDeployment@3
           displayName: 'Deploy Company A Bicep (ARM Task)'
           inputs:
             deploymentScope: 'Resource Group'
-            azureResourceManagerConnection: '$(AZURE_SERVICE_CONNECTION)'
+            azureResourceManagerConnection: 'WIF-HubSpokes-Root'
             subscriptionId: 'bc590447-877b-4cb2-9253-6d4aab175a22'
             resourceGroupName: 'rg-company-a'
             location: 'northeurope'
@@ -94,12 +92,12 @@ stages:
         - task: AzureCLI@2
           displayName: 'Deploy Company B Bicep'
           inputs:
-            azureSubscription: '$(wifServiceConnection)'
+            azureSubscription: 'WIF-HubSpokes-Root'
             scriptType: 'pscore'
             scriptLocation: 'inlineScript'
             inlineScript: |
-              az account set --subscription "$(spoke2Subscription)"
-              az group create --name rg-company-b --location $(location)
+              az account set --subscription "Azure Sub-B"
+              az group create --name rg-company-b --location northeurope
               az deployment group create --resource-group rg-company-b `
                 --template-file infra/stacks/company-b/main.bicep --parameters "@infra/stacks/company-b/company-b.parameters.json" `
                 --only-show-errors `
