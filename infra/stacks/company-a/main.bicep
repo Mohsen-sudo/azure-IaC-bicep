@@ -30,7 +30,9 @@ param domainJoinUsername string
 @description('Domain Join Password')
 param domainJoinPassword string
 
-// Optional: NSG for subnet with inbound RDP and outbound virtual network access
+// ------------------------
+// NSG rules
+// ------------------------
 var nsgRules = [
   {
     name: 'AllowRDP'
@@ -60,9 +62,12 @@ var nsgRules = [
   }
 ]
 
-// Optional: Route table for subnet
+// Optional: Route table
 var customRoutes = []
 
+// ------------------------
+// Network resources
+// ------------------------
 resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
   name: 'companyA-avd-nsg'
   location: location
@@ -79,7 +84,7 @@ resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
   }
 }
 
-// Create CompanyA spoke VNet with ONE subnet for AVD hosts
+// VNet + subnet
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: 'companyA-avd-vnet'
   location: location
@@ -100,7 +105,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   }
 }
 
-// Storage Account for FSLogix profiles
+// ------------------------
+// Storage + Private Endpoint
+// ------------------------
 resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
   location: location
@@ -109,7 +116,6 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   properties: {}
 }
 
-// Private Endpoint for Azure Files (FSLogix)
 resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (privateDnsZoneId != '') {
   name: 'companyA-fslogix-pe'
   location: location
@@ -132,7 +138,6 @@ resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' 
   }
 }
 
-// Link PE to private DNS zone
 resource fslogixDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-05-01' = if (privateDnsZoneId != '') {
   name: 'filesDnsGroup'
   parent: fslogixPrivateEndpoint
@@ -148,7 +153,9 @@ resource fslogixDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroup
   }
 }
 
-// Example AVD Host Pools
+// ------------------------
+// AVD Host Pools (empty pools, ready for session hosts)
+// ------------------------
 resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyA-avd-hostpool01'
   location: location
@@ -173,11 +180,11 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
   }
 }
 
-// ------ SESSION HOST VM SECTION ------
-
-// Network Interface for VM
+// ------------------------
+// Session Host VM
+// ------------------------
 resource avdNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
-  name: 'companyA-avd-vm01-nic'
+  name: 'compA-vm01-nic'
   location: location
   properties: {
     ipConfigurations: [
@@ -193,7 +200,6 @@ resource avdNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
   }
 }
 
-// Session Host VM for AVD
 resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
   name: 'compA-vm01'
   location: location
@@ -202,7 +208,7 @@ resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
       vmSize: 'Standard_D2s_v3'
     }
     osProfile: {
-      computerName: 'companyA-avd-vm01'
+      computerName: 'compA-vm01' // <= 15 chars
       adminUsername: adminUsername
       adminPassword: adminPassword
       windowsConfiguration: {
@@ -230,7 +236,6 @@ resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
   }
 }
 
-// Domain Join Extension
 resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
   name: 'joindomain'
   parent: avdVm
