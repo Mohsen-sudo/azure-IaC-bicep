@@ -140,7 +140,7 @@ resource companyAToAddsPeering 'Microsoft.Network/virtualNetworks/virtualNetwork
 }
 
 // ADDS → CompanyA peering (remote side via peering.bicep module)
-module addsToCompanyAModule '../modules/peering.bicep' = {
+module addsToCompanyAModule '../../modules/networking/peering.bicep' = {
   name: 'adds-to-companyA-peering-deploy'
   scope: resourceGroup(resourceId(addsVnetId, 'Microsoft.Network/virtualNetworks').resourceGroupName)
   params: {
