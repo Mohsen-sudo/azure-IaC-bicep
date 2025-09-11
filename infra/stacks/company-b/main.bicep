@@ -13,6 +13,13 @@ param storageAccountName string = 'companybstorage'
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
 
+@description('Admin username for session host VM')
+param adminUsername string
+
+@description('Admin password for session host VM')
+@secure()
+param adminPassword string
+
 // Optional: NSG for subnet
 var nsgRules = [
   {
