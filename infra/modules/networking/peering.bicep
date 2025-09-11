@@ -1,7 +1,7 @@
 @description('The resource ID of the local VNet')
 param localVnetId string
 
-@description('The resourceId of the remote VNet to peer with')
+@description('The resource ID of the remote VNet to peer with')
 param peerVnetId string
 
 @description('Peering name (must be unique per VNet)')
