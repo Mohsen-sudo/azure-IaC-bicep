@@ -55,7 +55,7 @@ resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
   }
 }
 
-// Create CompanyA spoke VNet with ONE subnet for AVD hosts, associate NSG and route table
+// Create CompanyA spoke VNet with ONE subnet for AVD hosts
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   name: 'companyA-avd-vnet'
   location: location
@@ -125,7 +125,7 @@ resource vnetPeeringHub 'Microsoft.Network/virtualNetworks/virtualNetworkPeering
   }
 }
 
-// VNet Peering between CompanyA and ADDS
+// VNet Peering to ADDS (this side)
 resource companyAToAddsPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
   name: 'companyA-to-adds-peering'
   parent: vnet
@@ -139,21 +139,17 @@ resource companyAToAddsPeering 'Microsoft.Network/virtualNetworks/virtualNetwork
   }
 }
 
-// ADDS → CompanyA peering (existing VNet)
-resource addsToCompanyAPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
-  name: 'adds-to-companyA-peering'
-  scope: resourceGroup('rg-shared-services') // replace with ADDS VNet RG
-  properties: {
-    remoteVirtualNetwork: {
-      id: vnet.id
-    }
-    allowVirtualNetworkAccess: true
-    allowForwardedTraffic: true
-    allowGatewayTransit: false
+// ADDS → CompanyA peering (module deployment to ADDS RG)
+module addsToCompanyAModule 'adds-to-companyA-peering.bicep' = {
+  name: 'adds-to-companyA-peering-deploy'
+  scope: resourceGroup(resourceId(addsVnetId).resourceGroup)
+  params: {
+    addsVnetId: addsVnetId
+    companyAVnetId: vnet.id
   }
 }
 
-// Example AVD Host Pool 01
+// Example AVD Host Pools
 resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyA-avd-hostpool01'
   location: location
@@ -166,7 +162,6 @@ resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
   }
 }
 
-// Example AVD Host Pool 02
 resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyA-avd-hostpool02'
   location: location
