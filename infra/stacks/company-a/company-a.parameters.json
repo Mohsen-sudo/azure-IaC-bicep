@@ -3,13 +3,17 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "location": { "value": "northeurope" },
-    "vnetAddressPrefix": { "value": "10.2.0.0/16" },        // <-- Changed!
-    "subnetAddressPrefix": { "value": "10.2.1.0/24" },      // <-- Changed!
+    "vnetAddressPrefix": { "value": "10.2.0.0/16" },
+    "subnetAddressPrefix": { "value": "10.2.1.0/24" },
     "storageAccountName": { "value": "companyastorage" },
     "privateDnsZoneId": { "value": "" },
-    "hubVnetId": { "value": "/subscriptions/.../resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet" },
+    "hubVnetId": { 
+      "value": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/hubVnet"
+    },
     "hubVnetRg": { "value": "rg-shared-services" },
-    "addsVnetId": { "value": "/subscriptions/.../resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/aadds-vnet" },
+    "addsVnetId": { 
+      "value": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.Network/virtualNetworks/aadds-vnet"
+    },
     "addsVnetRg": { "value": "rg-shared-services" }
   }
 }
