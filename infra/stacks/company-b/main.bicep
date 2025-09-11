@@ -8,12 +8,14 @@ param vnetAddressPrefix string = '10.2.0.0/16'
 param subnetAddressPrefix string = '10.2.1.0/24'
 
 @description('Storage account name for FSLogix profiles')
-param storageAccountName string = 'companybstorage'
+param storageAccountName string
 
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
 
+// ------------------------
 // NSG rules
+// ------------------------
 var nsgRules = [
   {
     name: 'AllowRDP'
@@ -46,7 +48,9 @@ var nsgRules = [
 // Optional: Route table
 var customRoutes = []
 
-// Network Security Group
+// ------------------------
+// Network resources
+// ------------------------
 resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
   name: 'companyB-avd-nsg'
   location: location
@@ -55,7 +59,6 @@ resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
   }
 }
 
-// Route Table
 resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
   name: 'companyB-avd-rt'
   location: location
@@ -85,7 +88,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
   }
 }
 
-// Storage Account for FSLogix profiles
+// ------------------------
+// Storage + Private Endpoint
+// ------------------------
 resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
   location: location
@@ -94,7 +99,6 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   properties: {}
 }
 
-// Private Endpoint for FSLogix
 resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (privateDnsZoneId != '') {
   name: 'companyB-fslogix-pe'
   location: location
@@ -117,7 +121,6 @@ resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' 
   }
 }
 
-// Link PE to Private DNS Zone
 resource fslogixDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-05-01' = if (privateDnsZoneId != '') {
   name: 'filesDnsGroup'
   parent: fslogixPrivateEndpoint
@@ -133,7 +136,9 @@ resource fslogixDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroup
   }
 }
 
-// AVD Host Pools only (no VMs)
+// ------------------------
+// AVD Host Pools (empty, ready for session hosts)
+// ------------------------
 resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
   name: 'companyB-avd-hostpool01'
   location: location
