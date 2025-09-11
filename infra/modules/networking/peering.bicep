@@ -1,39 +1,37 @@
-// CompanyA ↔ Hub Peering
-module companyAToHub 'peering.bicep' = {
-  name: 'companyA-to-hub-peering'
-  params: {
-    localVnetId: vnet.id
-    peerVnetId: hubVnetId
-    peeringName: 'companyA-to-hub'
+@description('The resource ID of the local VNet')
+param localVnetId string
+
+@description('The resourceId of the remote VNet to peer with')
+param peerVnetId string
+
+@description('Peering name (must be unique per VNet)')
+param peeringName string
+
+@description('Whether to allow forwarded traffic')
+param allowForwardedTraffic bool = true
+
+@description('Whether to allow gateway transit')
+param allowGatewayTransit bool = false
+
+@description('Whether to use remote gateways')
+param useRemoteGateways bool = false
+
+resource localVnet 'Microsoft.Network/virtualNetworks@2023-09-01' existing = {
+  id: localVnetId
+}
+
+resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
+  name: peeringName
+  parent: localVnet
+  properties: {
+    remoteVirtualNetwork: {
+      id: peerVnetId
+    }
+    allowVirtualNetworkAccess: true
+    allowForwardedTraffic: allowForwardedTraffic
+    allowGatewayTransit: allowGatewayTransit
+    useRemoteGateways: useRemoteGateways
   }
 }
 
-module hubToCompanyA 'peering.bicep' = {
-  name: 'hub-to-companyA-peering'
-  scope: resourceGroup(resourceId(hubVnetId).resourceGroup)
-  params: {
-    localVnetId: hubVnetId
-    peerVnetId: vnet.id
-    peeringName: 'hub-to-companyA'
-  }
-}
-
-// CompanyA ↔ ADDS Peering
-module companyAToAdds 'peering.bicep' = {
-  name: 'companyA-to-adds-peering'
-  params: {
-    localVnetId: vnet.id
-    peerVnetId: addsVnetId
-    peeringName: 'companyA-to-adds'
-  }
-}
-
-module addsToCompanyA 'peering.bicep' = {
-  name: 'adds-to-companyA-peering'
-  scope: resourceGroup(resourceId(addsVnetId).resourceGroup)
-  params: {
-    localVnetId: addsVnetId
-    peerVnetId: vnet.id
-    peeringName: 'adds-to-companyA'
-  }
-}
+output peeringId string = vnetPeering.id
