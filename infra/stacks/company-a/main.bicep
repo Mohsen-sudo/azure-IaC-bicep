@@ -2,28 +2,16 @@
 param location string = 'northeurope'
 
 @description('CompanyA Spoke VNet address prefix')
-param vnetAddressPrefix string = '10.2.0.0/16' // <-- Updated to avoid overlap
+param vnetAddressPrefix string = '10.2.0.0/16'
 
 @description('Subnet address prefix for the AVD subnet')
-param subnetAddressPrefix string = '10.2.1.0/24' // <-- Updated to avoid overlap
+param subnetAddressPrefix string = '10.2.1.0/24'
 
 @description('Storage account name for FSLogix profiles')
 param storageAccountName string = 'companyastorage'
 
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
-
-@description('Hub VNet resource ID for peering')
-param hubVnetId string
-
-@description('Hub VNet resource group name')
-param hubVnetRg string
-
-@description('ADDS VNet resource ID for peering with Company A')
-param addsVnetId string
-
-@description('ADDS VNet resource group name')
-param addsVnetRg string
 
 // Optional: NSG for subnet
 var nsgRules = [
@@ -142,59 +130,5 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
     preferredAppGroupType: 'Desktop'
-  }
-}
-
-// VNet Peering to Hub (this side only)
-resource vnetPeeringHub 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
-  name: 'companyA-to-hub-peering'
-  parent: vnet
-  properties: {
-    remoteVirtualNetwork: { id: hubVnetId }
-    allowVirtualNetworkAccess: true
-    allowForwardedTraffic: true
-    allowGatewayTransit: false
-  }
-}
-
-// VNet Peering to ADDS (this side only)
-resource companyAToAddsPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-09-01' = {
-  name: 'companyA-to-adds-peering'
-  parent: vnet
-  properties: {
-    remoteVirtualNetwork: {
-      id: addsVnetId
-    }
-    allowVirtualNetworkAccess: true
-    allowForwardedTraffic: true
-    allowGatewayTransit: false
-  }
-}
-
-// ADDS → CompanyA peering (remote side via peering.bicep module, placed last)
-module addsToCompanyAModule '../../modules/networking/peering.bicep' = {
-  name: 'adds-to-companyA-peering'
-  scope: resourceGroup(addsVnetRg) // ADDS RG, passed in parameter
-  params: {
-    localVnetId: addsVnetId // ADDS VNet (local in remote RG)
-    peerVnetId: vnet.id     // CompanyA VNet (remote)
-    peeringName: 'adds-to-companyA-peering'
-    allowForwardedTraffic: true
-    allowGatewayTransit: false
-    useRemoteGateways: false
-  }
-}
-
-// Hub → CompanyA peering (remote side via peering.bicep module, placed last)
-module hubToCompanyAModule '../../modules/networking/peering.bicep' = {
-  name: 'hub-to-companyA-peering'
-  scope: resourceGroup(hubVnetRg) // Hub RG, passed in parameter
-  params: {
-    localVnetId: hubVnetId // Hub VNet (local in remote RG)
-    peerVnetId: vnet.id    // CompanyA VNet (remote)
-    peeringName: 'hub-to-companyA-peering'
-    allowForwardedTraffic: true
-    allowGatewayTransit: false
-    useRemoteGateways: false
   }
 }
