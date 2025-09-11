@@ -8,27 +8,10 @@ param vnetAddressPrefix string = '10.2.0.0/16'
 param subnetAddressPrefix string = '10.2.1.0/24'
 
 @description('Storage account name for FSLogix profiles')
-param storageAccountName string = 'companyastorage'
+param storageAccountName string
 
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
-
-@description('Admin username for session host VM')
-param adminUsername string
-
-@secure()
-@description('Admin password for session host VM')
-param adminPassword string
-
-@description('Domain FQDN')
-param domainName string = 'contoso.local'
-
-@description('Domain Join Username')
-param domainJoinUsername string
-
-@secure()
-@description('Domain Join Password')
-param domainJoinPassword string
 
 // ------------------------
 // NSG rules
@@ -177,83 +160,5 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
     preferredAppGroupType: 'Desktop'
-  }
-}
-
-// ------------------------
-// Session Host VM
-// ------------------------
-resource avdNic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
-  name: 'compA-vm01-nic'
-  location: location
-  properties: {
-    ipConfigurations: [
-      {
-        name: 'ipconfig1'
-        properties: {
-          subnet: { id: vnet.properties.subnets[0].id }
-          privateIPAllocationMethod: 'Dynamic'
-        }
-      }
-    ]
-    networkSecurityGroup: { id: avdNsg.id }
-  }
-}
-
-resource avdVm 'Microsoft.Compute/virtualMachines@2022-11-01' = {
-  name: 'compA-vm01'
-  location: location
-  properties: {
-    hardwareProfile: {
-      vmSize: 'Standard_D2s_v3'
-    }
-    osProfile: {
-      computerName: 'compA-vm01' // <= 15 chars
-      adminUsername: adminUsername
-      adminPassword: adminPassword
-      windowsConfiguration: {
-        enableAutomaticUpdates: true
-        provisionVMAgent: true
-      }
-    }
-    networkProfile: {
-      networkInterfaces: [
-        { id: avdNic.id }
-      ]
-    }
-    storageProfile: {
-      imageReference: {
-        publisher: 'MicrosoftWindowsDesktop'
-        offer: 'windows-10'
-        sku: 'win10-21h2-avd'
-        version: 'latest'
-      }
-      osDisk: {
-        createOption: 'FromImage'
-        managedDisk: { storageAccountType: 'Standard_LRS' }
-      }
-    }
-  }
-}
-
-resource domainJoin 'Microsoft.Compute/virtualMachines/extensions@2022-11-01' = {
-  name: 'joindomain'
-  parent: avdVm
-  properties: {
-    publisher: 'Microsoft.Compute'
-    type: 'JsonADDomainExtension'
-    typeHandlerVersion: '1.3'
-    autoUpgradeMinorVersion: true
-    settings: {
-      Name: domainName
-      OUPath: ''
-      User: domainJoinUsername
-      Restart: true
-      Options: 3
-      Debug: true
-    }
-    protectedSettings: {
-      Password: domainJoinPassword
-    }
   }
 }
