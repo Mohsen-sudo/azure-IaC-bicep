@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": { "value": "youradmin" },
+    "adminPassword": { "value": "yourpassword" },
+    "location": { "value": "northeurope" },
+    "subnetId": {
+      "value": "/subscriptions/ed5e066d-0ce1-4bfa-b62d-edba1e6eb807/resourceGroups/rg-company-a/providers/Microsoft.Network/virtualNetworks/companyA-avd-vnet/subnets/avd-subnet"
+    }
+  }
+}
