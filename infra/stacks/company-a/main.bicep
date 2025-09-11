@@ -153,7 +153,7 @@ resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
   name: 'companyA-avd-hostpool01'
   location: location
   properties: {
-    friendlyName: 'CompanyA-HostPool01'
+    friendlyName: 'AVD-0'
     hostPoolType: 'Pooled'
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
@@ -165,7 +165,7 @@ resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-pre
   name: 'companyA-avd-hostpool02'
   location: location
   properties: {
-    friendlyName: 'CompanyA-HostPool02'
+    friendlyName: 'AVD-2'
     hostPoolType: 'Pooled'
     validationEnvironment: false
     loadBalancerType: 'BreadthFirst'
