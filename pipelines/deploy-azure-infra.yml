@@ -70,14 +70,19 @@ stages:
       pool:
         name: 'IaC-agent-pool'
       steps:
-        # Fetch secrets from Hub Key Vault
-        - task: AzureKeyVault@2
+        # Fetch secrets via Azure CLI
+        - task: AzureCLI@2
           displayName: 'Fetch Company A Secrets from Key Vault'
           inputs:
             azureSubscription: '$(wifServiceConnection)'
-            KeyVaultName: '$(keyVaultName)'
-            SecretsFilter: 'CompanyAAdminUsername,CompanyAAdminPassword'
-            RunAsPreJob: true
+            scriptType: 'pscore'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              az account set --subscription "$(hubSubscription)"
+              $CompanyAAdminUsername = az keyvault secret show --vault-name $(keyVaultName) --name CompanyAAdminUsername --query value -o tsv
+              $CompanyAAdminPassword = az keyvault secret show --vault-name $(keyVaultName) --name CompanyAAdminPassword --query value -o tsv
+              Write-Host "##vso[task.setvariable variable=CompanyAAdminUsername;issecret=true]$CompanyAAdminUsername"
+              Write-Host "##vso[task.setvariable variable=CompanyAAdminPassword;issecret=true]$CompanyAAdminPassword"
 
         # Deploy Bicep template for Company A
         - task: AzureCLI@2
@@ -108,14 +113,19 @@ stages:
       pool:
         name: 'IaC-agent-pool'
       steps:
-        # Fetch secrets from Hub Key Vault
-        - task: AzureKeyVault@2
+        # Fetch secrets via Azure CLI
+        - task: AzureCLI@2
           displayName: 'Fetch Company B Secrets from Key Vault'
           inputs:
             azureSubscription: '$(wifServiceConnection)'
-            KeyVaultName: '$(keyVaultName)'
-            SecretsFilter: 'CompanyBAdminUsername,CompanyBAdminPassword'
-            RunAsPreJob: true
+            scriptType: 'pscore'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              az account set --subscription "$(hubSubscription)"
+              $CompanyBAdminUsername = az keyvault secret show --vault-name $(keyVaultName) --name CompanyBAdminUsername --query value -o tsv
+              $CompanyBAdminPassword = az keyvault secret show --vault-name $(keyVaultName) --name CompanyBAdminPassword --query value -o tsv
+              Write-Host "##vso[task.setvariable variable=CompanyBAdminUsername;issecret=true]$CompanyBAdminUsername"
+              Write-Host "##vso[task.setvariable variable=CompanyBAdminPassword;issecret=true]$CompanyBAdminPassword"
 
         # Deploy Bicep template for Company B
         - task: AzureCLI@2
