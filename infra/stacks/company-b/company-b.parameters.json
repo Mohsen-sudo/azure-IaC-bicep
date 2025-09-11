@@ -2,16 +2,10 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "adminUsername": { "value": "admin" },
     "location": { "value": "northeurope" },
-    "maxSessionHosts": { "value": 15 },
-    "subnetAddressPrefix": { "value": "10.2.0.0/24" },
-    "vnetAddressPrefixes": { "value": ["10.2.0.0/16"] },
-    "keyVaultResourceId": {
-      "value": "/subscriptions/2323178e-8454-42b7-b2ec-fc8857af816e/resourceGroups/rg-shared-services/providers/Microsoft.KeyVault/vaults/sharedServicesKV-Mohsen"
-    },
-    "adminPasswordSecretName": {
-      "value": "CompanyBAdminPassword"
-    }
+    "vnetAddressPrefix": { "value": "10.3.0.0/16" },
+    "subnetAddressPrefix": { "value": "10.3.1.0/24" },
+    "storageAccountName": { "value": "companybstorage" },
+    "privateDnsZoneId": { "value": "" }
   }
 }
