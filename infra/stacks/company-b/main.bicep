@@ -8,7 +8,7 @@ param vnetAddressPrefix string = '10.2.0.0/16'
 param subnetAddressPrefix string = '10.2.1.0/24'
 
 @description('Storage account name for FSLogix profiles')
-param storageAccountName string = 'companyastorage'
+param storageAccountName string = 'companybstorage'
 
 @description('Private DNS Zone resource ID for privatelink.file.core.windows.net')
 param privateDnsZoneId string = ''
@@ -48,7 +48,7 @@ var customRoutes = []
 
 // Network Security Group
 resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
-  name: 'company-avd-nsg'
+  name: 'companyB-avd-nsg'
   location: location
   properties: {
     securityRules: nsgRules
@@ -57,7 +57,7 @@ resource avdNsg 'Microsoft.Network/networkSecurityGroups@2023-09-01' = {
 
 // Route Table
 resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
-  name: 'company-avd-rt'
+  name: 'companyB-avd-rt'
   location: location
   properties: {
     routes: customRoutes
@@ -66,7 +66,7 @@ resource avdRouteTable 'Microsoft.Network/routeTables@2023-09-01' = {
 
 // VNet + Subnet
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
-  name: 'company-avd-vnet'
+  name: 'companyB-avd-vnet'
   location: location
   properties: {
     addressSpace: {
@@ -96,4 +96,64 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
 
 // Private Endpoint for FSLogix
 resource fslogixPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-05-01' = if (privateDnsZoneId != '') {
-  name: 'company
+  name: 'companyB-fslogix-pe'
+  location: location
+  properties: {
+    subnet: { id: vnet.properties.subnets[0].id }
+    privateLinkServiceConnections: [
+      {
+        name: 'fslogix-files'
+        properties: {
+          privateLinkServiceId: storage.id
+          groupIds: ['file']
+          privateLinkServiceConnectionState: {
+            status: 'Approved'
+            description: 'Auto-approved'
+            actionsRequired: ''
+          }
+        }
+      }
+    ]
+  }
+}
+
+// Link PE to Private DNS Zone
+resource fslogixDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-05-01' = if (privateDnsZoneId != '') {
+  name: 'filesDnsGroup'
+  parent: fslogixPrivateEndpoint
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'filesDnsConfig'
+        properties: {
+          privateDnsZoneId: privateDnsZoneId
+        }
+      }
+    ]
+  }
+}
+
+// AVD Host Pools only (no VMs)
+resource avdHostpool01 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyB-avd-hostpool01'
+  location: location
+  properties: {
+    friendlyName: 'CompanyB-HostPool01'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
+  }
+}
+
+resource avdHostpool02 'Microsoft.DesktopVirtualization/hostPools@2022-02-10-preview' = {
+  name: 'companyB-avd-hostpool02'
+  location: location
+  properties: {
+    friendlyName: 'CompanyB-HostPool02'
+    hostPoolType: 'Pooled'
+    validationEnvironment: false
+    loadBalancerType: 'BreadthFirst'
+    preferredAppGroupType: 'Desktop'
+  }
+}
