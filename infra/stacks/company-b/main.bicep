@@ -2,10 +2,10 @@
 param location string = 'northeurope'
 
 @description('Spoke VNet address prefix')
-param vnetAddressPrefix string = '10.2.0.0/16'
+param vnetAddressPrefix string = '10.3.0.0/16'
 
 @description('Subnet address prefix for AVD subnet')
-param subnetAddressPrefix string = '10.2.1.0/24'
+param subnetAddressPrefix string = '10.3.1.0/24'
 
 @description('Storage account name for FSLogix profiles')
 param storageAccountName string
